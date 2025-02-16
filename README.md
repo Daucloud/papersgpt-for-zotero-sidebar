@@ -1,5 +1,7 @@
 # 📚 PapersGPT for Zotero - Modified Version by c7w
 
+![teaser](docs/teaser.png)
+
 ## ✨ Features
 
 ### 🖥️ **Chatbot in the Sidebar**  
