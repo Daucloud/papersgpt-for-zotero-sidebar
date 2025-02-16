@@ -10,7 +10,7 @@
 ### ✋ **Drag-and-Query on the Fly**  
 - Simply **drag and select** text within Zotero to instantly query the chatbot. No extra steps needed! ⚡
 
-### 🔒 **Offline-Only LLM API Support**  
+### 🔒 **Customized LLM API Support**  
 - All external LLM API support and online authentication mechanisms of PapersGPT have been **disabled**.  
 - Retains only the OpenAI configuration format with the following options:  
   - `base_url`  
