@@ -220,9 +220,14 @@ export async function getGPTResponse(requestText: string) {
 export async function getResponseByOnlineModel(requestText: string) {
   const views = Zotero.PapersGPT.views as Views
   const apiKey = Zotero.Prefs.get(`${config.addonRef}.usingAPIKEY`)
-  const temperature = Zotero.Prefs.get(`${config.addonRef}.temperature`)
+  const temperature = 0.7
   let apiURL = Zotero.Prefs.get(`${config.addonRef}.usingAPIURL`) as string
   const model = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
+
+  Zotero.log(`apiURL: ${apiURL}`)
+  Zotero.log(`model: ${model}`)
+  Zotero.log(`apiKey: ${apiKey}`)
+
   views.messages.push({
     role: "user",
     content: requestText
@@ -274,7 +279,8 @@ export async function getResponseByOnlineModel(requestText: string) {
             model: deployedModel,
             messages: views.messages.slice(-chatNumber),
             stream: true,
-            temperature: Number(temperature)
+            temperature: Number(temperature),
+            max_tokens: 4096
           }),
           responseType: "text",
           requestObserver: (xmlhttp: XMLHttpRequest) => {

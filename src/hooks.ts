@@ -3,6 +3,7 @@ import { getString, initLocale } from "./modules/locale";
 import Views from "./modules/views";
 import Utils from "./modules/utils";
 import { createZToolkit } from "./ztoolkit"
+import { Prompt, default_prompt_list } from "./modules/prompts";
 
 async function onStartup() {
   await Promise.all([
@@ -16,40 +17,13 @@ async function onStartup() {
     `chrome://${config.addonRef}/content/icons/favicon.ico`
   );
 
-  Zotero.Prefs.set(`${config.addonRef}.supportedLLMs`, "")
+  Zotero.Prefs.set(`${config.addonRef}.supportedLLMs`, "")  //! [c7w] change this...
   Zotero[config.addonInstance].views = new Views();
   Zotero[config.addonInstance].utils = new Utils();
   
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
   );
-
-  if (Zotero.isMac) {
-      var filename = "ChatPDFLocal"
-      const temp = Zotero.getTempDirectory();
-      filename = PathUtils.join(temp.path.replace(temp.leafName, ""), `${filename}.dmg`);
-
-      Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
-      if (!await checkFileExist(filename)) {
-          let url = "https://www.papersgpt.com/packages/ChatPDFLocal-Zotero.dmg"
-          await downloadFile(url, filename)
-      }
-
-      var startLocalServer = Zotero.Prefs.get(`${config.addonRef}.startLocalServer`)
-       
-      if (!startLocalServer) {
-          await startLocalLLMEngine(filename) 
-          Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, true)
-
-	  const execFunc = async() => {
-              var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-              var token =  Zotero.Prefs.get(`${config.addonRef}.token`)
-              await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-              Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-          }
-          window.setTimeout(execFunc, 3000)
-      }
-  }
   
 }
 
@@ -57,12 +31,17 @@ async function onStartup() {
 async function onMainWindowLoad(win: Window): Promise<void> {
   // Create ztoolkit for every window
   addon.data.ztoolkit = createZToolkit();
- 
+
+
+  //! [c7w] core view functions!
   Zotero[config.addonInstance].views.registerInToolbar()
   
   Zotero[config.addonInstance].views.registerInMenupopup()
 
   Zotero[config.addonInstance].views.registerWindowAppearance()
+
+  Zotero[config.addonInstance].views.registerInSidebar()
+  //! [c7w] core view functions!
 
   //Guide.showGuideInMainWindowIfNeed(win);
 

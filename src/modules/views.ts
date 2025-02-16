@@ -5,7 +5,12 @@ import { Document } from "langchain/document";
 import { help, fontFamily, defaultBuiltInTags, parseTag, defaultChatPrompt, defaultBuiltInPrompts } from "./base"
 import { getLocalModelDownloadProgress, setApiKey, getSupportedLLMs, ModelConfig, selectModel } from "./Meet/papersgpt";
 import { checkFileExist, startLocalLLMEngine, shutdownLocalLLMEngine } from "../hooks";
+import { default_prompt_list, Prompt } from "./prompts";
+import { newly_added_css } from "./views_css";
+import { pdf2txt } from "./Meet/Zotero";
 
+
+// var markdown = require('markdown-it')().use(require('markdown-it-mathjax3'));
 
 const markdown = require("markdown-it")({
   breaks: true, // Convert line terminators \n to <br> tags
@@ -164,7 +169,7 @@ export default class Views {
    * @param text 
    * @param isDone 
    */
-  public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
+  public setText_backup(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
     this.outputContainer.style.display = ""
     const outputDiv = this.outputContainer.querySelector(".markdown-body")! as HTMLDivElement
     outputDiv.setAttribute("pureText", text);
@@ -252,6 +257,95 @@ export default class Views {
         // The following is written after completing the answer Better Notes. Two options for master notes
         Meet.BetterNotes.insertEditorText(outputDiv.innerHTML)
       }
+    }
+  }
+
+  /**
+   * Set answer area text
+   * @param text 
+   * @param isDone 
+   */
+  public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
+    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement
+
+    answer_div.setAttribute("pureText", text);
+
+    if (answer_div.innerHTML.trim() == "") {
+      answer_div.innerHTML = `<p></p>`
+    }
+
+    /**
+     * Render based on differences, just to preserve cursor blinking
+     */
+    let md2html = () => {
+      let result = markdown.render(text)
+        // .replace(/<mjx-assistive-mml[^>]*>.*?<\/mjx-assistive-mml>/g, "")
+      /**
+       * Monitor differences and replace nodes or text
+       * @param oldNode 
+       * @param newNode 
+       * @returns 
+       */
+      let diffRender = (oldNode: any, newNode: any) => {
+        if (newNode.nodeName == "svg") {
+          oldNode.parentNode.replaceChild(newNode, oldNode)
+          return
+        }
+        if (oldNode.nodeName == "#text" && newNode.nodeName == "#text") { 
+          oldNode.data = newNode.data
+          return
+        } else {
+          if (
+            oldNode.outerHTML == newNode.outerHTML &&
+            oldNode.innerHTML == newNode.innerHTML
+          ) {
+            return
+          }
+        }
+        // There are more old ones than new ones and need to be removed
+        [...oldNode.childNodes].slice(newNode.childNodes.length).forEach((e: any)=>e.remove())
+        for (let i = 0; i < newNode.childNodes.length; i++) {
+          if (i < oldNode.childNodes.length) {
+            if (oldNode.childNodes[i].tagName != newNode.childNodes[i].tagName) {
+              if (oldNode.childNodes[i].tagName == "#text") {
+                oldNode.childNodes[i].remove()
+                oldNode.appendChild(newNode.childNodes[i])
+              } else {
+                oldNode.replaceChild(newNode.childNodes[i], oldNode.childNodes[i])
+              }
+              continue
+            } else {
+              diffRender(oldNode.childNodes[i], newNode.childNodes[i])
+            }
+          } else {
+            oldNode.appendChild(newNode.childNodes[i])
+          }
+        }
+      }
+      // Plain text itself does not require MD rendering to prevent deformation due to inconsistent styles
+      let _outputDiv = answer_div.cloneNode(true) as HTMLDivElement
+      try {
+        _outputDiv.innerHTML = result
+        if (answer_div.childNodes.length == 0) {
+          answer_div.innerHTML = result
+        } else {
+          diffRender(answer_div, _outputDiv)
+        }
+      } catch {
+        answer_div.innerText = result
+      }
+    }
+    md2html()
+    if (answer_div.innerHTML.trim() == "") {
+      answer_div.innerHTML = `<p></p>`
+    }
+    // scrollToNewLine && answer_div.scrollBy(0, answer_div.scrollTopMax)
+
+    if (isDone) {
+      // Any live preview errors at the end should disappear because of the following sentence
+      // answer_div.innerHTML = markdown.render(text)
+      // ! [c7w] TODO if record
+      // scrollToNewLine && answer_div.scrollBy(0, answer_div.scrollTopMax)
     }
   }
 
@@ -409,6 +503,7 @@ export default class Views {
     });
   }
 
+  //! [c7w] TODO
   public createOrUpdateModelsContainer() {
       var curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string
       const toolbarContainer = this.toolbarContainer
@@ -1258,6 +1353,7 @@ export default class Views {
   }
 
 
+  //
   private buildContainer() {
     const container = ztoolkit.UI.createElement(document, "div", {
       id: this.id,
@@ -3287,6 +3383,7 @@ export default class Views {
   }
 
   public show(x: number = -1, y: number = -1, reBuild: boolean = true) {
+    return
     reBuild = reBuild || !this.container
     if (reBuild) {
       document.querySelectorAll(`#${this.id}`).forEach(e=>e.remove())
@@ -3339,33 +3436,30 @@ export default class Views {
   }
 
   public exit() {
-    this.outputContainer.style.display = "none"
-    const textareaNode = this.inputContainer.querySelector("textarea")!
-    const inputNode = this.inputContainer?.querySelector("input")!
-    if (textareaNode.style.display != "none") {
-      textareaNode.style.display = "none"
-      inputNode.value = ""
-      inputNode.style.display = ""
-      inputNode.focus()
-      //return
+    if (this.outputContainer) {
+      this.outputContainer.style.display = "none"
     }
-    if (inputNode.value.length) {
-      inputNode.value = ""
-      //return
+    if (this.inputContainer) {
+      const textareaNode = this.inputContainer?.querySelector("textarea")!
+      const inputNode = this.inputContainer?.querySelector("input")!
+      if (textareaNode.style.display != "none") {
+        textareaNode.style.display = "none"
+        inputNode.value = ""
+        inputNode.style.display = ""
+        inputNode.focus()
+        //return
+      }
+      if (inputNode.value.length) {
+        inputNode.value = ""
+        //return
+      }
     }
     // exit container
-    this.hide()
-    this.container!.remove()
-    this.isInNote && Meet.BetterNotes.reFocus()
-    if (Zotero.isMac) {
-      var filename = "ChatPDFLocal"
-      if (!(IOUtils.exists(filename))) {
-        const temp = Zotero.getTempDirectory();
-        filename = PathUtils.join(temp.path.replace(temp.leafName, ""), `${filename}.dmg`);
-      } 
-      shutdownLocalLLMEngine()
-      Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
-    }	
+    if (this.container) {
+      this.hide()
+      this.container!.remove()
+      this.isInNote && Meet.BetterNotes.reFocus()
+    }
     Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Offline")
   }
 
@@ -3631,17 +3725,175 @@ export default class Views {
     newNode.setAttribute("oncommand", "");
     newNode.setAttribute("mousedown", "");
     newNode.setAttribute("onmousedown", "");
-    newNode.addEventListener("click", async (event: any) => {
-      var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
-      if (papersgptState === "Offline") {
-        this.callback()
-      } else if (papersgptState == "Online") {
-        this.exit()
-      } 
-    });
+    // newNode.addEventListener("click", async (event: any) => {
+    //   var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
+    //   if (papersgptState === "Offline") {
+    //     this.callback()
+    //   } else if (papersgptState == "Online") {
+    //     this.exit()
+    //   } 
+    // });
     const searchNode = toolbar.querySelector("#zotero-tb-search");
     newNode.style.listStyleImage = `url(chrome://${config.addonRef}/content/icons/papersgpt-logo.png)`;
     toolbar.insertBefore(newNode, searchNode);
+  }
+
+  public loadPromptSidebar() {
+    // Load prompts!
+    const loaded_prompts = Zotero.Prefs.get(`${config.addonRef}.prompts`) as string
+    if (!loaded_prompts) {
+        Zotero.Prefs.set(`${config.addonRef}.prompts`, JSON.stringify(default_prompt_list))
+    }
+    // try to parse the prompts. If it fails, set the default prompts
+    let prompts: Prompt[] = []
+    try {
+        prompts = JSON.parse(loaded_prompts) as Prompt[]
+    } catch {
+        prompts = default_prompt_list
+        Zotero.logError("Failed to parse prompts. Setting to default prompts!")
+    }
+    // prompts = default_prompt_list
+    return prompts
+  }
+
+  public async registerInSidebar() {
+  //     zotero-tab-cover
+  // tabs-deck  <-- query this by id, find its parent and insert a box after it
+  // zotero-context-pane
+    const that = this;
+
+    //! 1.1 View for sidebar
+    const pluginName = "papersgpt-sidebar"; 
+    const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
+    if (papersgptNode) {
+      return;
+    }
+    const tabs_deck = Zotero.getMainWindow().document.querySelector("#zotero-context-pane")!;
+    const newNode = Zotero.getMainWindow().document.createElement("div");
+    const tabs_deck_parent = tabs_deck.parentNode;
+    tabs_deck_parent!.insertBefore(newNode, tabs_deck.nextSibling);
+    newNode.setAttribute("id", pluginName);
+    newNode.setAttribute("class", "papersgpt-sidebar");
+    newNode.setAttribute("command", "");
+    newNode.setAttribute("oncommand", "");
+    newNode.setAttribute("mousedown", "");
+    newNode.setAttribute("onmousedown", "");
+    // <box id="zotero-context-pane" collapsed="true" zotero-persist="width"
+    //                     style="font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; left: unset; right: 0px;"
+    //                     zoteroFontSize="small" zoteroUIDensity="comfortable" class="standard">
+    newNode.setAttribute("zotero-persist", "width");
+    newNode.setAttribute("style", "font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; margin: 1rem; background-color: #fff;");
+    newNode.setAttribute("zoteroFontSize", "small");
+    newNode.setAttribute("zoteroUIDensity", "comfortable");
+    newNode.setAttribute("class", "standard");
+
+    const width = Zotero.Prefs.get(`${config.addonRef}.width`)
+    newNode.style.width = '28%';
+    
+    // write 123 in the sidebar
+    newNode.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%">
+                            <div class="sidebar-answer" id="sidebar-answer">
+                            Now ask your questions!
+                            </div>
+                            <div class="input-panel">
+                              <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
+                              </div>
+                              <label class="chat-input-panel-inner">
+                                <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
+                                  <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+                                </div>
+                                <div id="chat-input-buttoner" class="chat-input-buttoner">
+                                  <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+                                </div>
+                                </div>
+                              </label>
+                            </div>
+                        </div>`;
+
+
+    //! 1.2 Stylesheets for sidebar
+    ztoolkit.UI.appendElement({
+      tag: "style",
+      id: `${config.addonRef}-style`,
+      namespace: "html",
+      properties: {
+        innerHTML: newly_added_css}}, document.documentElement);
+
+    //! 2. Execution of the sidebar
+    const executeSidebar = async (prompt: Prompt) => {
+      //! 2.1. mutex lock
+      if (this.isInference) {
+        return 
+      }
+      this.isInference = true
+
+      //! building the prompt
+      let original_prompt = prompt.prompt;
+      let pdf_selection = Meet.Zotero.getPDFSelection();
+
+      // fetch from chat input. if input has value, overwrite pdf_selection
+      const chat_input = document.querySelector("#chat-input") as HTMLTextAreaElement;
+      if (chat_input.value) {
+        original_prompt = chat_input.value;
+        chat_input.value = "";
+      }
+
+      let final_input_text = original_prompt;
+      Zotero.log(`PDF selection: ${pdf_selection}`);
+      if (prompt.read_selection) {
+        final_input_text = `${original_prompt}\n${pdf_selection}`;
+      } else {
+        final_input_text = `${original_prompt}`;
+      }
+
+      //! start sending requests!
+      const output_text = await Meet.integratellms.getGPTResponse(final_input_text) as string;
+
+
+      this.isInference = false
+    }
+    
+    //! 3 Dynamic Rendering
+    //! 3.1 Rendering the tags
+    const input_panel_prompt_list = document.querySelector("#input-panel-prompt-list") as HTMLDivElement;
+    const loaded_prompts = this.loadPromptSidebar();
+    const render_prompt = (prompt: Prompt) => {
+      // <div class="input-panel-prompt" style="margin: 0.2rem; padding: 0.2rem; border-radius: 10px; background-color: #1d93ab; color: #fff; cursor: pointer;">Chat PDF</div>
+      const promptNode = ztoolkit.UI.appendElement({tag: "div", classList: ["input-panel-prompt"], styles: {margin: "0.2rem", padding: "0.2rem", borderRadius: "10px", backgroundColor: prompt.display.color, color: "#fff", cursor: "pointer"}, properties: {innerText: prompt.name}, listeners: [{type: "click", listener: async () => { 
+        executeSidebar(prompt);
+      }}]}, input_panel_prompt_list) as HTMLDivElement;
+      input_panel_prompt_list.appendChild(promptNode);
+      return promptNode;
+    };
+    // sort the prompts by prompt.display.priority
+    loaded_prompts.sort((a, b) => a.display.priority - b.display.priority);
+    loaded_prompts.forEach(render_prompt);
+
+
+    //! 3.2 Action for the sending button
+    document.querySelector("#chat-input-buttoner")?.addEventListener("mouseup", async (event) => {
+      const inputNode = document.querySelector("#chat-input") as HTMLTextAreaElement;
+      const text = inputNode.value;
+      if (text.length > 0) {
+        executeSidebar({name: "Send", prompt: text, display: {color: "#1d93ab", priority: 0}, read_selection: true, description: "Send the text to the AI model."});
+        inputNode.value = "";
+      }
+    });
+
+    //! 3.3 Action for the copy button
+    document.querySelector("#chat-input-copyer")?.addEventListener("mouseup", async (event) => {
+      const inputNode = document.querySelector("#sidebar-answer") as HTMLDivElement;
+      const text = inputNode.getAttribute("pureText") as string;
+      if (text.length > 0) {
+        await new ztoolkit.Clipboard()
+        .addText(text, "text/unicode")
+        .copy()
+      }
+    });
+
+    
   }
 
 
@@ -3699,14 +3951,19 @@ export default class Views {
     img.alt = ''
     newNode.appendChild(img);
 
-    newNode.addEventListener("click", async () => {
-      var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
-      if (papersgptState === "Offline") {
-	this.callback()
-      } else if (papersgptState == "Online") {
-        this.exit()
-      } 
-    });
+    // newNode.addEventListener("click", async () => {
+    //   var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
+    //   if (papersgptState === "Offline") {
+	  //     this.callback()
+    //   } else if (papersgptState == "Online") {
+    //     this.exit()
+    //   } 
+    // });
+
+    // wait for 1 seconds and then call this.callback()
+    window.setTimeout(() => {
+      this.callback()
+    }, 3000)
 
     const parentNode = reader?._iframeWindow?.document.querySelector(".start")
 
@@ -3730,8 +3987,10 @@ export default class Views {
       apiUrl: "https://api.openai.com/v1/chat/completions"
     }
 
-    this.publisher2models.set("OpenAI", modelConfig)
-    this.publishers.push("OpenAI")
+    //! [c7w] Disable the following code for now
+    // this.publisher2models.set("OpenAI", modelConfig)
+    // this.publishers.push("OpenAI")
+
     //Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
     //Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
     //Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
@@ -3739,32 +3998,10 @@ export default class Views {
 
     var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
     var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
-    if (Zotero.isMac) {
-      var filename = "ChatPDFLocal"
-      const temp = Zotero.getTempDirectory();
-      filename = PathUtils.join(temp.path.replace(temp.leafName, ""), `${filename}.dmg`);
 
-      if (await checkFileExist(filename + ".done")) {
-        var startLocalServer = Zotero.Prefs.get(`${config.addonRef}.startLocalServer`)
-        if (!startLocalServer) {
-          await startLocalLLMEngine(filename)  
-	   
-	  Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, true)
-          const execFunc = async() => {
-	    var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-            var token =  Zotero.Prefs.get(`${config.addonRef}.token`)
-	    await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-            Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-          }
-          window.setTimeout(execFunc, 3000)
-	}
-      } 
-    } else {
-      var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-      var token =  Zotero.Prefs.get(`${config.addonRef}.token`)
-      await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-      Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-    }
+    await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
+    Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
+
       
     if (Zotero_Tabs.selectedIndex == 0) {
       const div = document.querySelector("#item-tree-main-default .row.selected")!
@@ -3837,6 +4074,55 @@ export default class Views {
         }
       })
     }
+
+  // Register ctrl+c. Zotero.log event.explicitOriginalTarget.baseURI
+  // Register ctrl+c. Zotero.log event.explicitOriginalTarget.baseURI
+  document.addEventListener("keydown", (ev) => {
+    const data = ev; // Use ev as data for consistency
+    if (data.ctrlKey && data.key === 'c') {
+      // get sidebar-answer text
+      const sidebarAnswer = document.querySelector("#sidebar-answer") as HTMLDivElement;
+      // get its window
+      const win = sidebarAnswer.ownerDocument.defaultView;
+      let selection = win.getSelection();
+      if (!selection) {
+        console.error("No selection found.");
+        return;
+      }
+
+      if (selection.toString().length > 0) {
+        Zotero.warn(selection.toString());
+        let range = selection.getRangeAt(0);
+        if (!range) {
+          console.error("No range found in selection.");
+          return;
+        }
+        let docFragment = range.cloneContents();
+        Zotero.warn(selection.rangeCount+1);
+        // Create a temporary container to hold the fragment
+        let tempDiv = document.createElement("div");
+        tempDiv.appendChild(docFragment);
+  
+        // Copy the HTML content of the temporary container
+        let htmlContent = tempDiv;
+
+        Zotero.warn(htmlContent);
+        Zotero.warn(selection.rangeCount+2);
+        var TurndownService = require('turndown')
+        var turndownService = new TurndownService({headingStyle: "atx"});
+        var markdown = turndownService.turndown(htmlContent)
+        // wait for 100 milliseconds and then copy the selection
+        setTimeout(async () => {
+
+          await new ztoolkit.Clipboard()
+            .addText(markdown, "text/unicode")
+            .copy();
+        }, 100);
+      }
+      // Additional logic for ctrl+c can be added here
+    }
+  });
+
     
     document.addEventListener(
       "keydown",
@@ -3853,7 +4139,7 @@ export default class Views {
           let range = selection.getRangeAt(0);
           const span = range.endContainer
           let text = await Meet.BetterNotes.getEditorText(span)
-          ztoolkit.log(text)
+          // ztoolkit.log(text)
           this.messages = [{
             role: "user",
             content: text

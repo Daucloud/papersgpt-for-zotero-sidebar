@@ -170,11 +170,11 @@ async function pdf2documents(itemkey: string) {
   await PDFViewerApplication.pdfViewer.pagesPromise;
   let pages = PDFViewerApplication.pdfViewer._pages;
   let totalPageNum = pages.length
-  // const popupWin = new ztoolkit.ProgressWindow("[Pending] PDF", { closeTime: -1 })
-  //   .createLine({ text: `[1/${totalPageNum}] Reading`, progress: 1, type: "success" })
-  //   .show()
-  const popupWin = Meet.Global.popupWin.createLine({ text: `[1/${totalPageNum}] Reading PDF`, progress: 1, type: "success" })
+  const popupWin = new ztoolkit.ProgressWindow("[Pending] PDF", { closeTime: -1 })
+    .createLine({ text: `[1/${totalPageNum}] Reading`, progress: 1, type: "success" })
     .show()
+  // const popupWin = Meet.Global.popupWin.createLine({ text: `[1/${totalPageNum}] Reading PDF`, progress: 1, type: "success" })
+  //   .show()
   // Read all lines of the page
   const pageLines: any = {}
   let docs: Document[] = []
@@ -290,6 +290,133 @@ async function pdf2documents(itemkey: string) {
   // popupWin.changeHeadline("[Done] PDF")
   // popupWin.startCloseTimer(1000)
   return docs
+}
+
+export async function pdf2txt() {
+  const reader = await ztoolkit.Reader.getReader() as _ZoteroTypes.ReaderInstance
+  const PDFViewerApplication = (reader._iframeWindow as any).wrappedJSObject.PDFViewerApplication;
+  await PDFViewerApplication.pdfLoadingTask.promise;
+  await PDFViewerApplication.pdfViewer.pagesPromise;
+  let pages = PDFViewerApplication.pdfViewer._pages;
+  let totalPageNum = pages.length
+  const popupWin = new ztoolkit.ProgressWindow("[Pending] PDF", { closeTime: -1 })
+    .createLine({ text: `[1/${totalPageNum}] Reading`, progress: 1, type: "success" })
+    // .show()
+  // const popupWin = Meet.Global.popupWin.createLine({ text: `[1/${totalPageNum}] Reading PDF`, progress: 1, type: "success" })
+  //   .show()
+  // Read all lines of the page
+  const pageLines: any = {}
+  let docs: string[] = []
+  for (let pageNum = 0; pageNum < totalPageNum; pageNum++) {
+    let pdfPage = pages[pageNum].pdfPage
+    let textContent = await pdfPage.getTextContent()
+    let items: PDFItem[] = textContent.items.filter((item: PDFItem) => item.str.trim().length)
+    let lines = mergeSameLine(items)
+    let index = lines.findIndex(line => /(r?eferences?|acknowledgements)$/i.test(line.text.trim()))
+    if (index != -1) {
+      lines = lines.slice(0, index)
+    }
+    pageLines[pageNum] = lines
+    popupWin.changeLine({ idx: popupWin.lines.length - 1, text: `[${pageNum + 1}/${totalPageNum}] Reading PDF`, progress: (pageNum + 1) / totalPageNum * 100})
+    if (index != -1 && pageNum / totalPageNum >= .9) {
+      break
+    }
+  }
+
+  popupWin.changeLine({ idx: popupWin.lines.length - 1, text: "Reading PDF", progress: 100 })
+  popupWin.changeLine({ progress: 100 });
+  totalPageNum = Object.keys(pageLines).length
+  
+  for (let pageNum1 = 0; pageNum1 < totalPageNum; pageNum1++) {
+    let pdfPage = pages[pageNum1].pdfPage
+    const maxWidth = pdfPage._pageInfo.view[2];
+    const maxHeight = pdfPage._pageInfo.view[3];
+    let lines = [...pageLines[pageNum1]]
+    // Todo: Remove header and footer information, duplicate 
+  
+
+    // paragraph clustering
+    // principle: Font size from large to small, merge; From small to big
+    let abs = (x: number) => x > 0 ? x : -x
+    const paragraphs = [[lines[0]]]
+    for (let i = 1; i < lines.length; i++) {
+      let lastLine = paragraphs.slice(-1)[0].slice(-1)[0]
+      let currentLine = lines[i]
+      let nextLine = lines[i + 1]
+      const isNewParagraph =
+        // Reach a certain row count threshold
+        paragraphs.slice(-1)[0].length >= 5 && 
+        (
+          // There is text in a very large font on the current line
+          currentLine._height.some((h2: number) => lastLine._height.every((h1: number) => h2 > h1)) ||
+          // The abstract is automatically one paragraph
+          /abstract/i.test(currentLine.text) ||
+          // The distance from the previous line is too large
+          abs(lastLine.y - currentLine.y) > currentLine.height * 2 ||
+          // First line indented paragraph
+          (currentLine.x > lastLine.x && nextLine && nextLine.x < currentLine.x)
+        )
+      // Open new paragraph 
+      if (isNewParagraph) {
+        paragraphs.push([currentLine])
+      }
+      // Otherwise, include it in the current paragraph
+      else {
+        paragraphs.slice(-1)[0].push(currentLine)
+      }
+    }
+    ztoolkit.log(paragraphs)
+    // Paragraph merge
+    for (let i = 0; i < paragraphs.length; i++) {
+      let box: { page: number, left: number; top: number; right: number; bottom: number }
+      /**
+       * All lines belong to a paragraph
+       * Merge while calculating its bounds
+       */
+      let _pageText = ""
+      let line, nextLine
+      for (let j = 0; j < paragraphs[i].length; j++) {
+        line = paragraphs[i][j]
+        if (!line) { continue }
+        nextLine = paragraphs[i]?.[j + 1]
+        // Update boundaries 
+        box ??= { page: pageNum1, left: line.x, right: line.x + line.width, top: line.y + line.height, bottom: line.y }
+        if (line.x < box.left) {
+          box.left = line.x
+        }
+        if (line.x + line.width > box.right) {
+          box.right = line.x + line.width
+        }
+        if (line.y < box.bottom) {
+          line.y = box.bottom
+        }
+        if (line.y + line.height > box.top) {
+          box.top = line.y + line.height
+        }
+        _pageText += line.text
+        if (
+          nextLine &&
+          line.height > nextLine.height
+        ) {
+          _pageText = "\n"
+        } else if (j < paragraphs[i].length - 1) {
+          if (!line.text.endsWith("-")) {
+            _pageText += " "
+          }
+        }
+      }
+      _pageText = _pageText.replace(/\x20+/g, " ").replace(/^\x20*\n+/g, "").replace(/\x20*\n+/g, "");
+      if (_pageText.length > 0) {
+        docs.push(
+          _pageText
+        )
+      }
+    }
+  }
+  popupWin.changeHeadline("[Done] PDF")
+  popupWin.startCloseTimer(300)
+  // concat the docs and return
+  return docs.join("\n\n")
 }
 
 /**

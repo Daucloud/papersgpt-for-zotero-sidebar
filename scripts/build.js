@@ -106,6 +106,11 @@ async function main() {
         __env__: `"${process.env.NODE_ENV}"`,
       },
       bundle: true,
+      minify: false,   // 不进行代码混淆
+      minifyIdentifiers: false, // 禁用标识符混淆
+      minifySyntax: false,      // 禁用语法压缩
+      minifyWhitespace: false,  // 禁用空白压缩
+      sourcemap: true,          // 启用 Source Maps
       outfile,
       // Don't turn minify on
       // minify: true,
@@ -113,17 +118,16 @@ async function main() {
     })
     .catch(() => process.exit(1));
 
-  console.log("[Build] Run esbuild OK");
-
-  const indexJsContent = fs.readFileSync(outfile, "utf-8");
-  const result = await UglifyJS.minify(indexJsContent, {
-    output: { ascii_only: true },
-  });
-  if (result.error) {
-    console.log("UglifyJS error", result.error);
-    process.exit(1);
-  }
-  fs.writeFileSync(outfile, result.code, "utf-8");
+    //! Temporarily disable the uglify step
+  // const indexJsContent = fs.readFileSync(outfile, "utf-8");
+  // const result = await UglifyJS.minify(indexJsContent, {
+  //   output: { ascii_only: true },
+  // });
+  // if (result.error) {
+  //   console.log("UglifyJS error", result.error);
+  //   process.exit(1);
+  // }
+  // fs.writeFileSync(outfile, result.code, "utf-8");
 
   const replaceFrom = [
     /__author__/g,

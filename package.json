@@ -55,6 +55,9 @@
     "langchain": "^0.0.66",
     "lighten-darken-color": "^1.0.0",
     "markdown-it": "^13.0.1",
+    "markdown-it-katex": "^2.0.3",
+    "markdown-it-latex": "^0.2.0",
+    "markdown-it-math": "^4.1.1",
     "markdown-it-mathjax3": "^4.3.2",
     "node-fetch": "^3.3.2",
     "pdf-parse": "^1.1.1",
@@ -63,6 +66,7 @@
     "react-markdown": "^8.0.6",
     "showdown": "^2.1.0",
     "terser": "^5.17.1",
+    "turndown": "^7.2.0",
     "zotero-adv-installer": "file:..",
     "zotero-plugin-toolkit": "4.0.11"
   },
