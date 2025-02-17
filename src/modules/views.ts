@@ -3961,9 +3961,10 @@ export default class Views {
     // });
 
     // wait for 1 seconds and then call this.callback()
-    window.setTimeout(() => {
-      this.callback()
-    }, 3000)
+    // window.setTimeout(() => {
+    Zotero.log("Calling callback")
+    this.callback()
+    // }, 3000)
 
     const parentNode = reader?._iframeWindow?.document.querySelector(".start")
 
