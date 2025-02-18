@@ -3922,9 +3922,9 @@ export default class Views {
 
 
   public async registerInMenupopup() {
-    var showText = "Chat PDF with ChatGPT, Claude, Gemini"
+    var showText = "Toggle Hide/Display of sidebar @ papersgpt-sidebar"
     if (Zotero.isMac) {
-      showText = "Chat PDF with ChatGPT, Claude, Gemini and Local LLMs"
+      showText = "Toggle Hide/Display of sidebar @ papersgpt-sidebar"
     }
 
     const waitTime = 5000 
@@ -3958,6 +3958,12 @@ export default class Views {
       return 
     }
     const newNode = pageDownNode?.cloneNode(true) as XUL.ToolBarButton;
+  //   set inner HTML to <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+  //   <polygon points="10,2 18,18 2,18" fill="blue" />
+  // </svg>
+
+    newNode.innerHTML = `<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><polygon points="10,2 18,18 2,18" fill="blue" /></svg>`
+
     newNode.setAttribute("id", toolbarid);
     if (Zotero.isMac) {
       newNode.setAttribute("title", "Chat PDF with ChatGPT, Claude, Gemini and Local LLMs");
@@ -3968,12 +3974,16 @@ export default class Views {
     newNode.setAttribute("oncommand", "");
     newNode.setAttribute("mousedown", "");
     newNode.setAttribute("onmousedown", "");
+
+    Zotero.log(newNode.innerHTML)
+
+
     newNode.disabled = false; 
-    newNode.innerHTML = "";
-    let img = reader?._iframeWindow?.document.createElement('img')
-    img.src = `chrome://${config.addonRef}/content/icons/papersgpt-logo.png`;
-    img.alt = ''
-    newNode.appendChild(img);
+    // newNode.innerHTML = "";
+    // let img = reader?._iframeWindow?.document.createElement('img')
+    // img.src = `url(chrome://${config.addonRef}/content/icons/papersgpt-logo.png)`;
+    // img.alt = ''
+    // newNode.appendChild(img);
 
     newNode.addEventListener("click", async () => {
       this.toggleSideBar()
