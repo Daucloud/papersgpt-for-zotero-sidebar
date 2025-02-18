@@ -3712,6 +3712,9 @@ export default class Views {
       return; 
     }
 
+    Zotero.log("Calling callback")
+    this.callback()
+
     const toolbar = Zotero.getMainWindow().document.querySelector("#zotero-items-toolbar")!;
     const lookupNode = toolbar.querySelector("#zotero-tb-lookup")!;
     const newNode = lookupNode?.cloneNode(true) as XUL.ToolBarButton;
@@ -3756,11 +3759,32 @@ export default class Views {
     return prompts
   }
 
+
+  public toggleSideBar() {
+    const pluginName = "papersgpt-sidebar"; 
+    const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
+    if (!papersgptNode) {
+      return;
+    }
+
+    // toggle display status for the sidebar
+    // if the sidebar is visible, hide it
+    // if the sidebar is hidden, show it
+    if (papersgptNode.style.display == "none") {
+      papersgptNode.style.display = "block";
+    } else {
+      papersgptNode.style.display = "none";
+    }
+
+  }
+
   public async registerInSidebar() {
   //     zotero-tab-cover
   // tabs-deck  <-- query this by id, find its parent and insert a box after it
   // zotero-context-pane
     const that = this;
+
+    this.callback()
 
     //! 1.1 View for sidebar
     const pluginName = "papersgpt-sidebar"; 
@@ -3951,19 +3975,12 @@ export default class Views {
     img.alt = ''
     newNode.appendChild(img);
 
-    // newNode.addEventListener("click", async () => {
-    //   var papersgptState = Zotero.Prefs.get(`${config.addonRef}.papersgptState`)
-    //   if (papersgptState === "Offline") {
-	  //     this.callback()
-    //   } else if (papersgptState == "Online") {
-    //     this.exit()
-    //   } 
-    // });
+    newNode.addEventListener("click", async () => {
+      this.toggleSideBar()
+    });
 
     // wait for 1 seconds and then call this.callback()
     // window.setTimeout(() => {
-    Zotero.log("Calling callback")
-    this.callback()
     // }, 3000)
 
     const parentNode = reader?._iframeWindow?.document.querySelector(".start")

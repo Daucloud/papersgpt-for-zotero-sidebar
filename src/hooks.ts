@@ -34,13 +34,15 @@ async function onMainWindowLoad(win: Window): Promise<void> {
 
 
   //! [c7w] core view functions!
-  Zotero[config.addonInstance].views.registerInToolbar()
+  // Zotero[config.addonInstance].views.registerInToolbar()
   
-  Zotero[config.addonInstance].views.registerInMenupopup()
-
   Zotero[config.addonInstance].views.registerWindowAppearance()
 
   Zotero[config.addonInstance].views.registerInSidebar()
+
+  Zotero[config.addonInstance].views.registerInMenupopup()
+
+
   //! [c7w] core view functions!
 
   //Guide.showGuideInMainWindowIfNeed(win);
