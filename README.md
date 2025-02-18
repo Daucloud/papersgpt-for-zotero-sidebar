@@ -117,6 +117,12 @@ Below is an example of a customized prompt designed to summarize the abstract of
 
 Note that the `Send` button in sidebar can also be viewed as an instance of Prompt with prompt dynamically read from the input element. The `read_selection` can be regarded as set to true.
 
+## Recommendation Usage
+
+- Select `Abstract + Introduction`, and Click `Abstract` to summarize
+- Select a subsection of `Method`, and Click `Bullet` to chunkize the text for faster reading
+- Select `Any Text`, and Type in the input area for querying
+
 
 ## Development
 
