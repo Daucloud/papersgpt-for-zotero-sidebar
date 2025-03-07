@@ -3779,146 +3779,140 @@ export default class Views {
   }
 
   public async registerInSidebar() {
-  //     zotero-tab-cover
-  // tabs-deck  <-- query this by id, find its parent and insert a box after it
-  // zotero-context-pane
-    const that = this;
+  const that = this;
 
-    this.callback()
+  this.callback()
 
-    //! 1.1 View for sidebar
-    const pluginName = "papersgpt-sidebar"; 
-    const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
-    if (papersgptNode) {
-      return;
-    }
-    const tabs_deck = Zotero.getMainWindow().document.querySelector("#zotero-context-pane")!;
-    const newNode = Zotero.getMainWindow().document.createElement("div");
-    const tabs_deck_parent = tabs_deck.parentNode;
-    tabs_deck_parent!.insertBefore(newNode, tabs_deck.nextSibling);
-    newNode.setAttribute("id", pluginName);
-    newNode.setAttribute("class", "papersgpt-sidebar");
-    newNode.setAttribute("command", "");
-    newNode.setAttribute("oncommand", "");
-    newNode.setAttribute("mousedown", "");
-    newNode.setAttribute("onmousedown", "");
-    // <box id="zotero-context-pane" collapsed="true" zotero-persist="width"
-    //                     style="font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; left: unset; right: 0px;"
-    //                     zoteroFontSize="small" zoteroUIDensity="comfortable" class="standard">
-    newNode.setAttribute("zotero-persist", "width");
-    newNode.setAttribute("style", "font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; margin: 1rem; background-color: #fff;");
-    newNode.setAttribute("zoteroFontSize", "small");
-    newNode.setAttribute("zoteroUIDensity", "comfortable");
-    newNode.setAttribute("class", "standard");
-
-    const width = Zotero.Prefs.get(`${config.addonRef}.width`)
-    newNode.style.width = '28%';
-    
-    // write 123 in the sidebar
-    newNode.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%">
-                            <div class="sidebar-answer" id="sidebar-answer">
-                            Now ask your questions!
-                            </div>
-                            <div class="input-panel">
-                              <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
-                              </div>
-                              <label class="chat-input-panel-inner">
-                                <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
-                                <div style="display: flex; flex-direction: column; align-items: center;">
-                                <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
-                                  <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
-                                </div>
-                                <div id="chat-input-buttoner" class="chat-input-buttoner">
-                                  <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
-                                </div>
-                                </div>
-                              </label>
-                            </div>
-                        </div>`;
-
-
-    //! 1.2 Stylesheets for sidebar
-    ztoolkit.UI.appendElement({
-      tag: "style",
-      id: `${config.addonRef}-style`,
-      namespace: "html",
-      properties: {
-        innerHTML: newly_added_css}}, document.documentElement);
-
-    //! 2. Execution of the sidebar
-    const executeSidebar = async (prompt: Prompt) => {
-      //! 2.1. mutex lock
-      if (this.isInference) {
-        return 
-      }
-      this.isInference = true
-
-      //! building the prompt
-      let original_prompt = prompt.prompt;
-      let pdf_selection = Meet.Zotero.getPDFSelection();
-
-      // fetch from chat input. if input has value, overwrite pdf_selection
-      const chat_input = document.querySelector("#chat-input") as HTMLTextAreaElement;
-      if (chat_input.value) {
-        original_prompt = chat_input.value;
-        chat_input.value = "";
-      }
-
-      let final_input_text = original_prompt;
-      Zotero.log(`PDF selection: ${pdf_selection}`);
-      if (prompt.read_selection) {
-        final_input_text = `${original_prompt}\n${pdf_selection}`;
-      } else {
-        final_input_text = `${original_prompt}`;
-      }
-
-      //! start sending requests!
-      const output_text = await Meet.integratellms.getGPTResponse(final_input_text) as string;
-
-
-      this.isInference = false
-    }
-    
-    //! 3 Dynamic Rendering
-    //! 3.1 Rendering the tags
-    const input_panel_prompt_list = document.querySelector("#input-panel-prompt-list") as HTMLDivElement;
-    const loaded_prompts = this.loadPromptSidebar();
-    const render_prompt = (prompt: Prompt) => {
-      // <div class="input-panel-prompt" style="margin: 0.2rem; padding: 0.2rem; border-radius: 10px; background-color: #1d93ab; color: #fff; cursor: pointer;">Chat PDF</div>
-      const promptNode = ztoolkit.UI.appendElement({tag: "div", classList: ["input-panel-prompt"], styles: {margin: "0.2rem", padding: "0.2rem", borderRadius: "10px", backgroundColor: prompt.display.color, color: "#fff", cursor: "pointer"}, properties: {innerText: prompt.name}, listeners: [{type: "click", listener: async () => { 
-        executeSidebar(prompt);
-      }}]}, input_panel_prompt_list) as HTMLDivElement;
-      input_panel_prompt_list.appendChild(promptNode);
-      return promptNode;
-    };
-    // sort the prompts by prompt.display.priority
-    loaded_prompts.sort((a, b) => a.display.priority - b.display.priority);
-    loaded_prompts.forEach(render_prompt);
-
-
-    //! 3.2 Action for the sending button
-    document.querySelector("#chat-input-buttoner")?.addEventListener("mouseup", async (event) => {
-      const inputNode = document.querySelector("#chat-input") as HTMLTextAreaElement;
-      const text = inputNode.value;
-      if (text.length > 0) {
-        executeSidebar({name: "Send", prompt: text, display: {color: "#1d93ab", priority: 0}, read_selection: true, description: "Send the text to the AI model."});
-        inputNode.value = "";
-      }
-    });
-
-    //! 3.3 Action for the copy button
-    document.querySelector("#chat-input-copyer")?.addEventListener("mouseup", async (event) => {
-      const inputNode = document.querySelector("#sidebar-answer") as HTMLDivElement;
-      const text = inputNode.getAttribute("pureText") as string;
-      if (text.length > 0) {
-        await new ztoolkit.Clipboard()
-        .addText(text, "text/unicode")
-        .copy()
-      }
-    });
-
-    
+  //! 1.1 View for sidebar
+  const pluginName = "papersgpt-sidebar"; 
+  const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
+  if (papersgptNode) {
+    return;
   }
+  const tabs_deck = Zotero.getMainWindow().document.querySelector("#zotero-context-pane")!;
+  const newNode = Zotero.getMainWindow().document.createElement("div");
+  const tabs_deck_parent = tabs_deck.parentNode;
+  tabs_deck_parent!.insertBefore(newNode, tabs_deck.nextSibling);
+  newNode.setAttribute("id", pluginName);
+  newNode.setAttribute("class", "papersgpt-sidebar");
+  newNode.setAttribute("command", "");
+  newNode.setAttribute("oncommand", "");
+  newNode.setAttribute("mousedown", "");
+  newNode.setAttribute("onmousedown", "");
+  newNode.setAttribute("zotero-persist", "width");
+  newNode.setAttribute("style", "font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; margin: 1rem; background-color: #fff; display: none;"); // 添加 display: none
+  newNode.setAttribute("zoteroFontSize", "small");
+  newNode.setAttribute("zoteroUIDensity", "comfortable");
+  newNode.setAttribute("class", "standard");
+
+  const width = Zotero.Prefs.get(`${config.addonRef}.width`)
+  newNode.style.width = '28%';
+  
+  // write 123 in the sidebar
+  newNode.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%">
+                          <div class="sidebar-answer" id="sidebar-answer">
+                          Now ask your questions!
+                          </div>
+                          <div class="input-panel">
+                            <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
+                            </div>
+                            <label class="chat-input-panel-inner">
+                              <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
+                              <div style="display: flex; flex-direction: column; align-items: center;">
+                              <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
+                                <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+                              </div>
+                              <div id="chat-input-buttoner" class="chat-input-buttoner">
+                                <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+                              </div>
+                              </div>
+                            </label>
+                          </div>
+                      </div>`;
+
+
+  //! 1.2 Stylesheets for sidebar
+  ztoolkit.UI.appendElement({
+    tag: "style",
+    id: `${config.addonRef}-style`,
+    namespace: "html",
+    properties: {
+      innerHTML: newly_added_css}}, document.documentElement);
+
+  //! 2. Execution of the sidebar
+  const executeSidebar = async (prompt: Prompt) => {
+    //! 2.1. mutex lock
+    if (this.isInference) {
+      return 
+    }
+    this.isInference = true
+
+    //! building the prompt
+    let original_prompt = prompt.prompt;
+    let pdf_selection = Meet.Zotero.getPDFSelection();
+
+    // fetch from chat input. if input has value, overwrite pdf_selection
+    const chat_input = document.querySelector("#chat-input") as HTMLTextAreaElement;
+    if (chat_input.value) {
+      original_prompt = chat_input.value;
+      chat_input.value = "";
+    }
+
+    let final_input_text = original_prompt;
+    Zotero.log(`PDF selection: ${pdf_selection}`);
+    if (prompt.read_selection) {
+      final_input_text = `${original_prompt}\n${pdf_selection}`;
+    } else {
+      final_input_text = `${original_prompt}`;
+    }
+
+    //! start sending requests!
+    const output_text = await Meet.integratellms.getGPTResponse(final_input_text) as string;
+
+
+    this.isInference = false
+  }
+  
+  //! 3 Dynamic Rendering
+  //! 3.1 Rendering the tags
+  const input_panel_prompt_list = document.querySelector("#input-panel-prompt-list") as HTMLDivElement;
+  const loaded_prompts = this.loadPromptSidebar();
+  const render_prompt = (prompt: Prompt) => {
+    // <div class="input-panel-prompt" style="margin: 0.2rem; padding: 0.2rem; border-radius: 10px; background-color: #1d93ab; color: #fff; cursor: pointer;">Chat PDF</div>
+    const promptNode = ztoolkit.UI.appendElement({tag: "div", classList: ["input-panel-prompt"], styles: {margin: "0.2rem", padding: "0.2rem", borderRadius: "10px", backgroundColor: prompt.display.color, color: "#fff", cursor: "pointer"}, properties: {innerText: prompt.name}, listeners: [{type: "click", listener: async () => { 
+      executeSidebar(prompt);
+    }}]}, input_panel_prompt_list) as HTMLDivElement;
+    input_panel_prompt_list.appendChild(promptNode);
+    return promptNode;
+  };
+  // sort the prompts by prompt.display.priority
+  loaded_prompts.sort((a, b) => a.display.priority - b.display.priority);
+  loaded_prompts.forEach(render_prompt);
+
+
+  //! 3.2 Action for the sending button
+  document.querySelector("#chat-input-buttoner")?.addEventListener("mouseup", async (event) => {
+    const inputNode = document.querySelector("#chat-input") as HTMLTextAreaElement;
+    const text = inputNode.value;
+    if (text.length > 0) {
+      executeSidebar({name: "Send", prompt: text, display: {color: "#1d93ab", priority: 0}, read_selection: true, description: "Send the text to the AI model."});
+      inputNode.value = "";
+    }
+  });
+
+  //! 3.3 Action for the copy button
+  document.querySelector("#chat-input-copyer")?.addEventListener("mouseup", async (event) => {
+    const inputNode = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    const text = inputNode.getAttribute("pureText") as string;
+    if (text.length > 0) {
+      await new ztoolkit.Clipboard()
+      .addText(text, "text/unicode")
+      .copy()
+    }
+  });
+
+  
+}
 
 
   public async registerInMenupopup() {
