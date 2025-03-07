@@ -3890,13 +3890,48 @@ export default class Views {
   loaded_prompts.forEach(render_prompt);
 
 
-  //! 3.2 Action for the sending button
+  //! 3.2 Action for the sending button and input handling
+  const chatInput = document.querySelector("#chat-input") as HTMLTextAreaElement;
+  
+  // Add keydown event listener for enter/shift+enter
+  chatInput?.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter") {
+      // Shift + Enter for new line
+      if (event.shiftKey) {
+        return; // Default behavior - insert newline
+      }
+      
+      // Enter to send
+      event.preventDefault();
+      const text = chatInput.value.trim();
+      if (text.length > 0) {
+        await executeSidebar({
+          name: "Send", 
+          prompt: text, 
+          display: {
+            color: "#1d93ab", 
+            priority: 0
+          }, 
+          read_selection: true, 
+          description: "Send the text to the AI model."
+        });
+        chatInput.value = "";
+      }
+    }
+  });
+
+  // Keep existing click handler as fallback
   document.querySelector("#chat-input-buttoner")?.addEventListener("mouseup", async (event) => {
-    const inputNode = document.querySelector("#chat-input") as HTMLTextAreaElement;
-    const text = inputNode.value;
+    const text = chatInput.value.trim();
     if (text.length > 0) {
-      executeSidebar({name: "Send", prompt: text, display: {color: "#1d93ab", priority: 0}, read_selection: true, description: "Send the text to the AI model."});
-      inputNode.value = "";
+      await executeSidebar({
+        name: "Send",
+        prompt: text,
+        display: {color: "#1d93ab", priority: 0},
+        read_selection: true,
+        description: "Send the text to the AI model."
+      });
+      chatInput.value = "";
     }
   });
 
