@@ -3809,9 +3809,11 @@ export default class Views {
   newNode.style.width = '28%';
   
   // write 123 in the sidebar
-  newNode.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%">
+  newNode.innerHTML = `<div style="display: flex; height: 100%;">
+                        <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
+                          <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
                           <div class="sidebar-answer" id="sidebar-answer">
-                          Now ask your questions!
+                            Now ask your questions!
                           </div>
                           <div class="input-panel">
                             <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
@@ -3819,17 +3821,81 @@ export default class Views {
                             <label class="chat-input-panel-inner">
                               <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
                               <div style="display: flex; flex-direction: column; align-items: center;">
-                              <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
-                                <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
-                              </div>
-                              <div id="chat-input-buttoner" class="chat-input-buttoner">
-                                <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
-                              </div>
+                                <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
+                                  <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+                                </div>
+                                <div id="chat-input-buttoner" class="chat-input-buttoner">
+                                  <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+                                </div>
                               </div>
                             </label>
                           </div>
+                        </div>
                       </div>`;
 
+  // Add resize functionality
+  const resizeHandle = newNode.querySelector('.resize-handle') as HTMLDivElement;
+  let isResizing = false;
+  let startX: number;
+  let startWidth: number;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = newNode.offsetWidth;
+
+    // Add temporary event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  });
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+
+    const dx = startX - e.clientX;
+    const newWidth = startWidth + dx;
+    
+    // Get parent width for percentage calculation
+    const parentWidth = document.documentElement.clientWidth;
+    const widthPercentage = (newWidth / parentWidth) * 100;
+
+    // If width is less than 15%, hide the sidebar
+    if (widthPercentage < 5) {
+      newNode.style.display = 'none';
+      isResizing = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      return;
+    }
+
+    // Limit maximum width to 50%
+    if (widthPercentage <= 50) {
+      newNode.style.width = `${widthPercentage}%`;
+    }
+  };
+
+  const handleMouseUp = () => {
+    isResizing = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    
+    // Save the new width to preferences if sidebar is visible
+    if (newNode.style.display !== 'none') {
+      const width = parseFloat(newNode.style.width);
+      Zotero.Prefs.set(`${config.addonRef}.width`, `${width}%`);
+    }
+  };
+
+  // Add hover effect for resize handle
+  resizeHandle.addEventListener('mouseover', () => {
+    resizeHandle.style.backgroundColor = 'rgba(0,0,0,0.1)';
+  });
+
+  resizeHandle.addEventListener('mouseout', () => {
+    if (!isResizing) {
+      resizeHandle.style.backgroundColor = 'transparent';
+    }
+  });
 
   //! 1.2 Stylesheets for sidebar
   ztoolkit.UI.appendElement({
