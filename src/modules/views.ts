@@ -3998,15 +3998,22 @@ export default class Views {
   });
 
   //! 3.2.1 Action for the model selector button
-  document.querySelector("#chat-input-model-selector")?.addEventListener("mouseup", async (event) => {
-    const modelSelector = document.querySelector("#chat-input-model-selector") as HTMLDivElement;
+  const modelSelector = newNode.querySelector("#chat-input-model-selector");
+  modelSelector?.addEventListener("mouseup", async (event) => {
     const rect = modelSelector.getBoundingClientRect();
-
-    // 获取当前可用的模型列表
+    Zotero.log(`Menu position: left=${rect.left}, top=${rect.bottom}`);
+    
     const curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string;
     const curPublisherConfig = this.publisher2models.get(curPublisher);
-    if (!curPublisherConfig) return;
-
+    
+    Zotero.log(`Models: ${JSON.stringify(curPublisherConfig?.models)}`);
+    Zotero.log(`Current Publisher: ${curPublisher}`);
+    Zotero.log(`Publisher Config: ${JSON.stringify(curPublisherConfig)}`);
+    
+    if (!curPublisherConfig) {
+      Zotero.log('No publisher config found');
+      return;
+    }
     const models = curPublisherConfig.models;
     const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
 
@@ -4038,7 +4045,7 @@ export default class Views {
       tag: "div",
       classList: ["model-menu"],
       styles: {
-        position: "absolute",
+        position: "fixed", // 改为 fixed
         left: `${rect.left}px`,
         top: `${rect.bottom + 4}px`,
         width: `${rect.width}px`,
@@ -4046,10 +4053,10 @@ export default class Views {
         border: "1px solid #e0e0e0",
         borderRadius: "4px",
         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        zIndex: "1000",
+        zIndex: "9999", // 增加 z-index
         overflow: "hidden"
       }
-    }, document.body);
+    }, newNode); // 改为 newNode 而不是 document.body
 
     // 添加菜单项
     items.forEach(item => {
@@ -4203,19 +4210,22 @@ export default class Views {
       models: ["gpt-3.5-turbo", "gpt-4"],
       hasApiKey: true,
       apiKey: defaultModelApiKey,
-      areModelsReady: new Map(),
+      areModelsReady: new Map([
+        ["gpt-3.5-turbo", true],
+        ["gpt-4", true]
+      ]), // 初始化 areModelsReady
       defaultModelIdx: 0,
       apiUrl: "https://api.openai.com/v1/chat/completions"
     }
 
-    //! [c7w] Disable the following code for now
-    // this.publisher2models.set("OpenAI", modelConfig)
-    // this.publishers.push("OpenAI")
+    // 取消这些注释
+    this.publisher2models.set("OpenAI", modelConfig)
+    this.publishers.push("OpenAI")
 
-    //Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
-    //Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
-    //Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
-    //Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, defaultModelApiKey)
+    Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
+    Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
+    Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
+    Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, defaultModelApiKey)
 
     var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
     var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
