@@ -1743,7 +1743,7 @@ export default class Views {
 		  value: "",
 		  innerHTML: "X" 
 		}
-	     }, registerWrapContainer) as HTMLDivElement
+	     }, registerWrapContainer)
 
              closeContainer.addEventListener("click", async event => {
 	         event.stopPropagation();
@@ -2368,23 +2368,7 @@ export default class Views {
 	    Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
 	}	
         Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Offline")
-      } else if (event.key == "/" && text == "/" && that.container.querySelector("input")?.style.display != "none") {
-        const rect = that.container.querySelector("input")!.getBoundingClientRect()
-        const commands = ["clear", "help", "report", "secretKey", "model", "api", "temperature", "chatNumber", "relatedNumber" , "deltaTime", "tagsMore", "width"]
-        that.createMenuNode(
-          { x: rect.left, y: rect.top + rect.height, width: 200, height: 350 / 12 * commands.length  },
-          commands.map(name => {
-            return {
-              name,
-              listener: () => {
-                // @ts-ignore
-                this.value = `/${name}`
-              }
-            }
-          }), [2, 6, 8]
-        )
       }
-      lastInputText = text
     }
     inputNode.addEventListener("keyup", inputListener)
     textareaNode.addEventListener("keyup", inputListener)
@@ -3188,7 +3172,7 @@ export default class Views {
 						allLanguagesContainer.style.top = `${y}px`
 						allLanguagesContainer.style.height = "80px" 
 
-						const percent = Number(Zotero.Prefs.get(`${config.addonRef}.width`))
+						const percent = Number(Zotero.Prefs.get(`${config.addonRef}.width`) as string)
 						closeContainer.style.left = `${x}px` 
 						closeContainer.style.top = `${y + 6}px`//allLanguagesContainer.style.top 
 						closeContainer.style.width = "3px" 
@@ -3809,6 +3793,7 @@ export default class Views {
   newNode.style.width = '28%';
   
   // write 123 in the sidebar
+  const modelIconUrl = `chrome://${config.addonRef}/content/icons/gpt.png`;
   newNode.innerHTML = `<div style="display: flex; height: 100%;">
                         <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
                           <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
@@ -3821,6 +3806,10 @@ export default class Views {
                             <label class="chat-input-panel-inner">
                               <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
                               <div style="display: flex; flex-direction: column; align-items: center;">
+                                <div id="chat-input-model-selector" class="chat-input-buttoner" style="display: flex; align-items: center; padding: 4px 8px; margin-bottom: 0.2rem; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; background-color: #fff;">
+                                  <span class="model-name" style="font-size: 13px; color: #444;">gpt-4o</span>
+                                  <span style="margin-left: auto; color: #888;">▼</span>
+                                </div>
                                 <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
                                   <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
                                 </div>
@@ -3832,6 +3821,13 @@ export default class Views {
                           </div>
                         </div>
                       </div>`;
+
+  // 在HTML加载完成后,初始化model selector的当前值
+  const modelNameSpan = newNode.querySelector(".model-name");
+  if (modelNameSpan) {
+    const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
+    modelNameSpan.textContent = currentModel || "gpt-4o";
+  }
 
   // Add resize functionality
   const resizeHandle = newNode.querySelector('.resize-handle') as HTMLDivElement;
@@ -3999,6 +3995,108 @@ export default class Views {
       });
       chatInput.value = "";
     }
+  });
+
+  //! 3.2.1 Action for the model selector button
+  document.querySelector("#chat-input-model-selector")?.addEventListener("mouseup", async (event) => {
+    const modelSelector = document.querySelector("#chat-input-model-selector") as HTMLDivElement;
+    const rect = modelSelector.getBoundingClientRect();
+
+    // 获取当前可用的模型列表
+    const curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string;
+    const curPublisherConfig = this.publisher2models.get(curPublisher);
+    if (!curPublisherConfig) return;
+
+    const models = curPublisherConfig.models;
+    const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
+
+    // 创建下拉菜单项
+    const items = models.map(model => ({
+      name: model,
+      isSelected: model === currentModel,
+      listener: async () => {
+        // 设置选中的模型
+        Zotero.Prefs.set(`${config.addonRef}.usingModel`, model);
+        if (curPublisherConfig) {
+          curPublisherConfig.defaultModelIdx = models.indexOf(model);
+        }
+        // 更新选择器显示
+        const modelNameSpan = modelSelector.querySelector(".model-name");
+        if (modelNameSpan) {
+          modelNameSpan.textContent = model;
+        }
+        // 高亮选择器
+        modelSelector.style.borderColor = "#1d93ab";
+        setTimeout(() => {
+          modelSelector.style.borderColor = "#e0e0e0";
+        }, 200);
+      }
+    }));
+
+    // 显示自定义样式的下拉菜单
+    const menuNode = ztoolkit.UI.appendElement({
+      tag: "div",
+      classList: ["model-menu"],
+      styles: {
+        position: "absolute",
+        left: `${rect.left}px`,
+        top: `${rect.bottom + 4}px`,
+        width: `${rect.width}px`,
+        backgroundColor: "#ffffff",
+        border: "1px solid #e0e0e0",
+        borderRadius: "4px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        zIndex: "1000",
+        overflow: "hidden"
+      }
+    }, document.body);
+
+    // 添加菜单项
+    items.forEach(item => {
+      const itemNode = ztoolkit.UI.appendElement({
+        tag: "div",
+        styles: {
+          padding: "8px 12px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
+          color: item.isSelected ? "#1d93ab" : "#444"
+        },
+        properties: {
+          innerHTML: `
+            <span style="flex-grow: 1;">${item.name}</span>
+            ${item.isSelected ? '<span style="margin-left: 8px;">✓</span>' : ''}
+          `
+        },
+        listeners: [{
+          type: "click",
+          listener: async () => {
+            await item.listener();
+            menuNode.remove();
+          }
+        }]
+      }, menuNode);
+
+      // 鼠标悬停效果
+      itemNode.addEventListener("mouseenter", () => {
+        itemNode.style.backgroundColor = "#f5f5f5";
+      });
+      itemNode.addEventListener("mouseleave", () => {
+        itemNode.style.backgroundColor = item.isSelected ? "#f0f0f0" : "#ffffff";
+      });
+    });
+
+    // 点击其他区域关闭菜单
+    const closeMenu = (e: MouseEvent) => {
+      if (!menuNode.contains(e.target as Node)) {
+        menuNode.remove();
+        document.removeEventListener("click", closeMenu);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener("click", closeMenu);
+    }, 0);
   });
 
   //! 3.3 Action for the copy button
