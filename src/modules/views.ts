@@ -505,853 +505,115 @@ export default class Views {
 
   //! [c7w] TODO
   public createOrUpdateModelsContainer() {
-      var curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string
-      const toolbarContainer = this.toolbarContainer
-      if (toolbarContainer == null) {
-          Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
-	  return 
-      }
-      const publishConfigContainer = toolbarContainer.querySelector(".publisher")!
-      var publishSelectContainer = toolbarContainer.querySelector(".publisherSelect")!
-      if (publishSelectContainer) {
-	  publishSelectContainer.remove() 
+    var curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string
+    const toolbarContainer = this.toolbarContainer
+    if (toolbarContainer == null) {
+      Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
+      return 
+    }
+
+    // Only handle Customized publisher configuration
+    if (curPublisher == "Customized") {
+      const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
+      
+      // Remove existing containers if any
+      const modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
+      if (modelSelectDivContainer) {
+        modelSelectDivContainer.remove()
       }
 
-      const publishId = "publishid"
-      publishSelectContainer = ztoolkit.UI.appendElement({
-	  tag: "select",
-	  id: publishId,
-	  classList: ["publisherSelect"],
-	  properties: {
-	      value: "",
-	  }
-      }, publishConfigContainer) as HTMLSelectElement//HTMLDivElement
+      var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
+      if (customModelDivContainer) {
+        customModelDivContainer.remove()
+      }
+
+      var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv") 
+      if (apiUrlContainer) {
+        apiUrlContainer.remove()
+      }
+
+      // Add API URL input
+      apiUrlContainer = ztoolkit.UI.appendElement({
+        tag: "div",
+        id: "apiUrlDiv", 
+        classList: ["apiUrlDiv"],
+        styles: {
+          margin: "6px",
+          fontSize: "12px",
+          borderRadius: "5px"
+        }
+      }, modelConfigContainer) as HTMLDivElement
+
+      const curPublisherElement = this.publisher2models.get(curPublisher)
+      const apiUrlInputContainer = ztoolkit.UI.appendElement({
+        tag: "input",
+        id: "apiUrl",
+        classList: ["apiUrl"],
+        properties: {
+          type: "text",
+          value: curPublisherElement?.apiUrl || "",
+          placeholder: "Customized API URL"
+        }
+      }, apiUrlContainer) as HTMLDivElement
 
       if (this.isDarkMode) {
-	publishSelectContainer.style.color = '#222';
+        apiUrlInputContainer.style.color = '#222';
       }
 
-      var publisherSelectIdx = 0 
-      for (var i = 0; i < this.publishers.length; i++) {
-	  if (this.publishers[i] == curPublisher) {
-	      publisherSelectIdx = i 
-	  }	
-	  var optionId = "option" + i 
-	  const optionContainer = ztoolkit.UI.appendElement({
-   	      tag: "option",
-	      id: optionId,
-	      properties: {
-		  innerHTML: this.publishers[i],
-		  value: this.publishers[i]
-	      }
-	  }, publishSelectContainer) as HTMLDivElement
+      apiUrlInputContainer.addEventListener("change", async event => {
+        const curPublisherElement = this.publisher2models.get(curPublisher)
+        if (curPublisherElement != null) {
+          curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
+          Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiUrlInputContainer).value)
+        }
+      })
+
+      // Add Model Name input
+      customModelDivContainer = ztoolkit.UI.appendElement({
+        tag: "div",
+        id: "customModelDiv",
+        classList: ["customModelDiv"],
+        styles: {
+          margin: "6px",
+          fontSize: "12px",
+          borderRadius: "5px"
+        }
+      }, modelConfigContainer) as HTMLDivElement
+
+      const customModelContainer = ztoolkit.UI.appendElement({
+        tag: "input",
+        id: "customModelId",
+        properties: {
+          type: "text",
+          value: curPublisherElement?.models[0] || "",
+          placeholder: "Customized Model Name"
+        }
+      }, customModelDivContainer) as HTMLDivElement
+
+      if (this.isDarkMode) {
+        customModelContainer.style.color = '#222';
       }
-      publishSelectContainer.selectedIndex = publisherSelectIdx 
 
-
-      publishSelectContainer.addEventListener("change", async event => {
-	  event.stopPropagation();
-
-	  curPublisher = publishSelectContainer.value
-	  Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, curPublisher)
-	  var curPublisherElement = this.publisher2models.get(curPublisher)
-	  if (curPublisherElement == null) return 
-	  var curAPIKey: string = curPublisherElement.apiKey
-	  var curAPIUrl: string = curPublisherElement.apiUrl
-	  Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, curAPIKey)
-	  Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, curAPIUrl)
-
-	  for (var i = 0; i < this.publishers.length; i++) {
-	      if (this.publishers[i] == curPublisher) {
-		  publishSelectContainer.selectedIndex = i
-		  break 
-	      }	  
-	  }
-
-	  curShowModels = curPublisherElement.models
-
-          const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-	  
-	  var modelNode = document.getElementById("modelSelect") as HTMLSelectElement 
-	  if (modelNode != null) {
-	      modelNode.innerHTML = ""
-	  } else if (curPublisher != "Customized") {
-        	  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-
-		  if (modelSelectDivContainer != null) {
-			  modelSelectDivContainer.remove() 
-		  } 
-
-		  var modelSelectDivId  = "modelSelectDiv"
-		  modelSelectDivContainer = ztoolkit.UI.appendElement({
-			  tag: "div",
-			  id: modelSelectDivId,
-			  classList: ["modelSelectDivCSS"],
-			  styles: {
-				  margin: "6px"
-			  }
-		  }, modelConfigContainer) as HTMLDivElement	
-
-
-		  modelNode = toolbarContainer.querySelector(".modelSelect")!
-		  if (modelNode) {
-			  modelNode.remove()
-		  }
-
-		  var modelSelectId = "modelSelect"
-		  modelNode = ztoolkit.UI.appendElement({
-			  tag: "select",
-			  id: modelSelectId,
-			  classList: ["modelSelect"],
-		  }, modelSelectDivContainer) as HTMLSelectElement // DivElement
-
-                  if (this.isDarkMode) {
-	            modelNode.style.color = '#222';
-                  }
-	  } 
-
-	  for (var i = 0; i < curShowModels.length; i++) {
-	      var optionId = "optionModel" + i
-	      var modelName = curShowModels[i]
-	      if (modelName.includes(":")) {
-	          let index = modelName.indexOf(":")
-                  modelName = modelName.substr(0, index)  		   
-	      }
-	      const optionContainer = ztoolkit.UI.appendElement({
-		  tag: "option",
-		  id: optionId,
-		  properties: {
-	              innerHTML: modelName,
-		      value: modelName 
-		  }
-	      }, modelNode) as HTMLDivElement
-	  }
-	  modelNode.selectedIndex = 0 
-	  var curModel = curShowModels[modelNode.selectedIndex]
-	  Zotero.Prefs.set(`${config.addonRef}.usingModel`, curModel)
-
-	  var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv")
-	  if (apiUrlContainer) {
-	      apiUrlContainer.remove()  
-	  }
-
-	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
-          if (customModelDivContainer) {
-	      customModelDivContainer.remove()  
-	  }
-	  
-	  if (curPublisher == "Customized") {
-	      var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-
-	      if (modelSelectDivContainer != null) {
-		  modelSelectDivContainer.remove() 
-	      }
-
-	      var apiUrlId  = "apiUrlDiv"
-	      apiUrlContainer = ztoolkit.UI.appendElement({
-	          tag: "div",
-		  id: apiUrlId,
-		  classList: [apiUrlId],
-		  styles: {
-		      margin: "6px",
-		      fontSize: "12px",
-                      borderRadius: "5px"
-		  }
-	      }, modelConfigContainer) as HTMLDivElement	
-
-	      var apiUrl = "apiUrl"
-	      var apitext = curPublisher + " API URL"
-	      var apiUrlInputContainer: HTMLDivElement
-	      if (curPublisherElement.apiUrl.length > 0) {
- 	          apitext = curPublisherElement.apiUrl
-
-		  apiUrlInputContainer = ztoolkit.UI.appendElement({
-  		      tag: "input",
-		      id: apiUrl,
-		      classList: [apiUrl],
-		      properties: {
-		          type: "text",
-		          value: apitext
-		      }
-		  }, apiUrlContainer) as HTMLDivElement
-	      } else {
-		  apiUrlInputContainer = ztoolkit.UI.appendElement({
-		      tag: "input",
-		      id: apiUrl,
-		      classList: [apiUrl],
-		      properties: {
-			  type: "text",
-			  placeholder: apitext
-		      }
-		  }, apiUrlContainer) as HTMLDivElement
-	      }
-
-	      if (this.isDarkMode) {
-	        apiUrlInputContainer.style.color = '#222';
-	      }
-	      
-	      apiUrlInputContainer.addEventListener("change", async event => {
-		  if ((<HTMLInputElement>apiUrlInputContainer).value == null) return
-	          const curPublisherElement = this.publisher2models.get(curPublisher)
-		  if (curPublisherElement != null) {
-		      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
-		      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
-		      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
-		  } 
-	      })
-
-
-              var customModelDivId  = "customModelDiv"
-	      customModelDivContainer = ztoolkit.UI.appendElement({
-	          tag: "div",
-		  id: customModelDivId,
-		  classList: [customModelDivId],
-		  styles: {
-		      margin: "6px",
-		      fontSize: "12px",
-                      borderRadius: "5px"
-		  }
-	      }, modelConfigContainer) as HTMLDivElement	
-
-	      var customModelId = "customModelId"
-	      var customModelText = curPublisher + " Model Name"
-	      var customModelContainer: HTMLDivElement
-	      if (curPublisherElement.models.length > 0) {
- 	          customModelText = curPublisherElement.models[0]
-
-		  customModelContainer = ztoolkit.UI.appendElement({
-  		      tag: "input",
-		      id: customModelId,
-		      properties: {
-		          type: "text",
-		          value: customModelText
-		      }
-		  }, customModelDivContainer) as HTMLDivElement
-	      } else {
-		  customModelContainer = ztoolkit.UI.appendElement({
-		      tag: "input",
-		      id: customModelId,
-		      properties: {
-			  type: "text",
-			  placeholder: customModelText
-		      }
-		  }, customModelDivContainer) as HTMLDivElement
-	      }
-
-              if (this.isDarkMode) {
-	        customModelContainer.style.color = '#222';
-	      }
-
-	      customModelContainer.addEventListener("change", async event => {
-		  if ((<HTMLInputElement>customModelContainer).value == null) return
-		  const curPublisherElement = this.publisher2models.get(curPublisher)
-          	  if (curPublisherElement != null) {
-		      if (curPublisherElement.models.length > 0) {
-		          curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
-		      } else {
-		          curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
-		      }
-		      Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
-		      Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
-		  }
-	      })
-	  } 
-
-	  var apiDivNode = document.getElementById("apidiv") 
-	  if (curPublisher == "Local LLM") {
-	      if (apiDivNode != null) {
-		  apiDivNode.remove()
-	      }
-
-	      const progressContainer = toolbarContainer.querySelector(".progress")! as HTMLProgressElement
-	      if (progressContainer != null) {
-		  progressContainer.remove()  
-	      }
-
-	      var isModelReady = curPublisherElement.areModelsReady.get(curModel)
-	     if (isModelReady)  {
-	         var retValue = await selectModel(curPublisher, curModel)
-	         if (!retValue) {
-   	             Zotero.log("invoke selectModel error!")
-	         }
-	     } else {
-		  var ret = await getLocalModelDownloadProgress(curModel)
-
-		  var trycount = 0
-		  while (ret < 0 || ret > 210) {
-		      if (trycount >= 5) break
-		      await sleep(1000) 
-		      ret = await getLocalModelDownloadProgress(curModel)
-		      trycount = trycount + 1
-		  }
-
-		  if (ret == 200) {
-		      curPublisherElement.areModelsReady.set(curModel, true)
-		  } else if (/*ret == -1 ||*/ (ret >= 0 && ret <= 100)) {
-		      //if (ret == -1) ret = 0
-
-		      const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-
-		      if (modelConfigContainer != null) {
-			  const progressContainer = ztoolkit.UI.appendElement({
-		       	      tag: "progress",
-			      id: "progress",
-			      classList: ["progress"],
-			      properties: {
-				  max: "100",
-				  value: ret 
-			      }
-		          }, modelConfigContainer) as HTMLProgressElement
-
-
-			  var timer: undefined | number;
-			  const interval = async () =>{
-		              var ret = await getLocalModelDownloadProgress(curModel)
-
-			      var usingModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
-			      if (usingModel != curModel) {
-                                  window.clearTimeout(timer)
-			          return 
-			      }
-
-			      if (ret >= 0 && ret < 100) {
-				  progressContainer.value = ret
-				  timer = window.setTimeout(interval, 2000)
-			      } else {
-				  if (ret == 100 || ret == 200) {
-			   	      var curPublisherElement = this.publisher2models.get(curPublisher)
-				      if (curPublisherElement != null)  { 
-					  curPublisherElement.areModelsReady.set(curModel, true)
-				      }
-				  }
-				  progressContainer.remove() 
-				  window.clearTimeout(timer)
-			      }
-			  }
-
-			  window.setTimeout(interval, 2000)
-		      }
-		  }
-	      }
-	  } else {
-	     if (apiDivNode != null) {
-	         apiDivNode.remove() 
-	     }
-
-	     const progressContainer = toolbarContainer.querySelector(".progress")! as HTMLProgressElement
-	     if (progressContainer != null) {
-		 progressContainer.remove()  
-	     }
-
-             const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-	     var apiDivId  = "apidiv"
-	     const apiDivContainer = ztoolkit.UI.appendElement({
-	         tag: "div",
-		 id: apiDivId,
-		 classList: [apiDivId],
-		 styles: {
-		     margin: "6px",
-	             fontSize: "12px",
-                     borderRadius: "5px"
-		 }
-	     }, modelConfigContainer) as HTMLDivElement	
-
-	     var apiId = "api"
-	     var apitext = curPublisher + " API KEY"
-	     var apiContainer: HTMLDivElement
-	     if (curPublisherElement.apiKey.length > 0) {
- 	         apitext = curPublisherElement.apiKey
-
-		 apiContainer = ztoolkit.UI.appendElement({
-  		     tag: "input",
-		     id: apiId,
-		     classList: [apiId],
-		     properties: {
-		         type: "text",
-		         value: apitext
-		     }
-		 }, apiDivContainer) as HTMLDivElement
-	     } else {
-		  apiContainer = ztoolkit.UI.appendElement({
-		      tag: "input",
-		      id: apiId,
-		      classList: [apiId],
-		      properties: {
-			  type: "text",
-			  placeholder: apitext
-		      }
-		  }, apiDivContainer) as HTMLDivElement
-	     }
- 
-	     if (this.isDarkMode) {
-	       apiContainer.style.color = '#222';
-	     }
-	     
-	     apiContainer.addEventListener("change", async event => {
-		 if ((<HTMLInputElement>apiContainer).value == null) return
-		 const curPublisherElement = this.publisher2models.get(curPublisher)
-		     if (curPublisherElement != null) { 
-		         curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-			 Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
-			 if (curPublisher == "OpenAI") {
-			     Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-			 } else if (curPublisher == "Claude-3") {
-			     Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-			 } else if (curPublisher == "Gemini") {
-			     Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-			 } else if (curPublisher == "Customized") {
-			     Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-			 }
-			 if (Zotero.isMac) {
-			     const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
-			 }
-		     }
-	     })
-	  }
-	});
-
-        var curPublisherElement = this.publisher2models.get(curPublisher)
-       	if (curPublisherElement && curPublisher == "Customized") {
-          const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-	  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-
-	  if (modelSelectDivContainer != null) {
-	      modelSelectDivContainer.remove() 
-	  }
-
-	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
-          if (customModelDivContainer) {
-	      customModelDivContainer.remove()  
-	  }
-	  
-	  var apiUrlId  = "apiUrlDiv"
-	  var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv")
-	  if (apiUrlContainer) {
-	      apiUrlContainer.remove()  
-	  }
-
-	  apiUrlContainer = ztoolkit.UI.appendElement({
-	    tag: "div",
-	    id: apiUrlId,
-	    classList: [apiUrlId],
-	    styles: {
-	      margin: "6px",
-	      fontSize: "12px",
-              borderRadius: "5px"
-	    }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var apiUrl = "apiUrl"
-	  var apitext = curPublisher + " API URL"
-	  var apiUrlInputContainer: HTMLDivElement
-	  if (curPublisherElement.apiUrl.length > 0) {
- 	    apitext = curPublisherElement.apiUrl
-
-	    apiUrlInputContainer = ztoolkit.UI.appendElement({
-  	      tag: "input",
-	      id: apiUrl,
-	      classList: [apiUrl],
-	      properties: {
-	        type: "text",
-		value: apitext
-	      }
-	    }, apiUrlContainer) as HTMLDivElement
-	  } else {
-	    apiUrlInputContainer = ztoolkit.UI.appendElement({
-	      tag: "input",
-	      id: apiUrl,
-	      classList: [apiUrl],
-	      properties: {
-		type: "text",
-		placeholder: apitext
-	      }
-	    }, apiUrlContainer) as HTMLDivElement
-	  }
-
-	  if (this.isDarkMode) {
-	    apiUrlInputContainer.style.color = '#222';
-	  }
-	      
-	  apiUrlInputContainer.addEventListener("change", async event => {
-	    if ((<HTMLInputElement>apiUrlInputContainer).value == null) return
-	    const curPublisherElement = this.publisher2models.get(curPublisher)
-	    if (curPublisherElement != null) {
-	      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
-	      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
-	      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
-	    } 
-	  })
-
-	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
-          if (customModelDivContainer) {
-	      customModelDivContainer.remove()  
-	  }
-
-          var customModelDivId  = "customModelDiv"
-	  customModelDivContainer = ztoolkit.UI.appendElement({
-	    tag: "div",
-	    id: customModelDivId,
-	    classList: [customModelDivId],
-	    styles: {
-	      margin: "6px",
-	      fontSize: "12px",
-              borderRadius: "5px"
-            }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var customModelId = "customModelId"
-	  var customModelText = curPublisher + " Model Name"
-	  var customModelContainer: HTMLDivElement
-	  if (curPublisherElement.models.length > 0) {
- 	    customModelText = curPublisherElement.models[0]
-
-	    customModelContainer = ztoolkit.UI.appendElement({
-  	      tag: "input",
-	      id: customModelId,
-	      properties: {
-	        type: "text",
-	        value: customModelText
-	      }
-	    }, customModelDivContainer) as HTMLDivElement
-	  } else {
-	    customModelContainer = ztoolkit.UI.appendElement({
-	      tag: "input",
-	      id: customModelId,
-	      properties: {
-		type: "text",
-		placeholder: customModelText
-	      }
-	    }, customModelDivContainer) as HTMLDivElement
-	  }
-
-          if (this.isDarkMode) {
-	    customModelContainer.style.color = '#222';
-	  }
-
-	  customModelContainer.addEventListener("change", async event => {
-	    if ((<HTMLInputElement>customModelContainer).value == null) return
-	    const curPublisherElement = this.publisher2models.get(curPublisher)
-            if (curPublisherElement != null) {
-	      if (curPublisherElement.models.length > 0) {
-	        curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
-	      } else {
-	        curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
-	      }
-	      Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
-	      Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
-	    }
-	  })
-          
-          var apiDivId  = "apidiv"
-	  
-	  var apiDivContainerExist = toolbarContainer.querySelector(".apidiv")
-          if (apiDivContainerExist) {
-	      apiDivContainerExist.remove()  
-	  }
-	  
-	  const apiDivContainer = ztoolkit.UI.appendElement({
-	    tag: "div",
-	    id: apiDivId,
-	    classList: [apiDivId],
-	    styles: {
-	      margin: "6px",
-	      fontSize: "12px",
-              borderRadius: "5px"
-	    }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var apiId = "api"
-	  var apitext = curPublisher + " API KEY"
-	  var apiContainer: HTMLDivElement
-	  if (curPublisherElement.apiKey.length > 0) {
- 	    apitext = curPublisherElement.apiKey
-
-     	    apiContainer = ztoolkit.UI.appendElement({
-  	      tag: "input",
-	      id: apiId,
-	      classList: [apiId],
-	      properties: {
-	        type: "text",
-                value: apitext
-	      }
-            }, apiDivContainer) as HTMLDivElement
-	  } else {
-	    apiContainer = ztoolkit.UI.appendElement({
-	      tag: "input",
-	      id: apiId,
-	      classList: [apiId],
-	      properties: {
-	        type: "text",
-	        placeholder: apitext
-	      }
-	    }, apiDivContainer) as HTMLDivElement
-	  }
- 
-	  if (this.isDarkMode) {
-	    apiContainer.style.color = '#222';
-	  }
-	     
-	  apiContainer.addEventListener("change", async event => {
-	    if ((<HTMLInputElement>apiContainer).value == null) return
-	    const curPublisherElement = this.publisher2models.get(curPublisher)
-	    if (curPublisherElement != null) { 
-	      curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-	      Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
-	      if (curPublisher == "OpenAI") {
-	        Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-	      } else if (curPublisher == "Claude-3") {
-		Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-	      } else if (curPublisher == "Gemini") {
-		Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-	      } else if (curPublisher == "Customized") {
-		Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-	      }
-	      if (Zotero.isMac) {
-	        const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
-	      }
-	    }
-	  })
-          
-	  return
-	}
-        
-	const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-
-	var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-  
-	if (modelSelectDivContainer != null) {
-	    modelSelectDivContainer.remove() 
-	} 
-
-	var modelSelectDivId  = "modelSelectDiv"
-	modelSelectDivContainer = ztoolkit.UI.appendElement({
-		  tag: "div",
-		  id: modelSelectDivId,
-		  classList: ["modelSelectDivCSS"],
-		  styles: {
-			  margin: "6px"
-		  }
-	}, modelConfigContainer) as HTMLDivElement	
-
-
-	var modelSelectContainer = toolbarContainer.querySelector(".modelSelect")!
-        if (modelSelectContainer) {
-	    modelSelectContainer.remove()
+      customModelContainer.addEventListener("change", async event => {
+        const curPublisherElement = this.publisher2models.get(curPublisher)
+        if (curPublisherElement != null) {
+          if (curPublisherElement.models.length > 0) {
+            curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
+          } else {
+            curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
+          }
+          Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
         }
-
-	var modelSelectApiContainer = toolbarContainer.querySelector(".apidiv")!
-        if (modelSelectApiContainer) {
-	    modelSelectApiContainer.remove()
-        }
-
-
-	var modelSelectId = "modelSelect"
-	modelSelectContainer = ztoolkit.UI.appendElement({
-		  tag: "select",
-		  id: modelSelectId,
-		  classList: ["modelSelect"],
-	}, modelSelectDivContainer) as HTMLSelectElement // DivElement
-
-	if (this.isDarkMode) {
-	  modelSelectContainer.style.color = '#222';
-	}
-
-	var curShowPublisher = this.publisher2models.get(curPublisher)
-	if (!curPublisherElement)   {
-          curShowPublisher = this.publisher2models.get("OpenAI")	
-          curShowPublisher.defaultModelIdx = 0  
-	}	
-	var curShowModels = curShowPublisher.models
-
-	var modelSelectedIdx = 0
-	for (var i = 0; i < curShowModels.length; i++) {
-	    var optionId = "optionModel" + i
-
-	    var curModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
-	    if (curModel === curShowModels[i]) {
-		    modelSelectedIdx = i
-	    }
-	    var modelName = curShowModels[i]
-	    if (modelName.includes(":")) {
-	        let index = modelName.indexOf(":")
-                modelName = modelName.substr(0, index)  		   
-	    }
-
-
-	    const optionContainer = ztoolkit.UI.appendElement({
-	        tag: "option",
-	        id: optionId,
-		properties: {
-	    	    innerHTML: modelName,
-		    value: modelName 
-		}
-	    }, modelSelectContainer) as HTMLDivElement
-	}
-
-        modelSelectContainer.selectedIndex = modelSelectedIdx 
-
-	modelSelectContainer.addEventListener("change", async event => {
-            var curModel = modelSelectContainer.value
-
-	    for (var i = 0; i < curShowModels.length; i++) {
-	       if (curModel == curShowModels[i] || ((curPublisher == "Claude-3" || curPublisher == "Gemini") && curShowModels[i].includes(curModel))) {
-	           Zotero.Prefs.set(`${config.addonRef}.usingModel`, curShowModels[i])
-		   modelSelectContainer.selectedIndex = i
-		   var curPublisherElement = this.publisher2models.get(curPublisher)
-		   if (curPublisherElement != null) {
-		       curPublisherElement.defaultModelIdx = i
-		   }
-		   break	    
-	       }	
-	    }
-
-	      if (curPublisher == "Local LLM") {
-		  const progressContainer = modelConfigContainer.querySelector(".progress")! as HTMLProgressElement
-		  if (progressContainer != null) {
-		      progressContainer.remove()  
-		  }
-		  var curPublisherElement = this.publisher2models.get(curPublisher)
-		  var isModelReady = curPublisherElement.areModelsReady.get(curModel)
-		  if (isModelReady)  {
-		      var retValue = await selectModel(curPublisher, curModel)
-		      if (!retValue) {
-   		          Zotero.log("invoke selectModel error!")
-		      }
-		  } else if  (curPublisherElement != null 
-		      && !isModelReady) {
-		      var ret = await getLocalModelDownloadProgress(curModel)
-
-		      var trycount = 0
-		      while (ret < 0 || ret > 210) {
-			 if (trycount >= 5) break
-		         await sleep(1000) 
-		         ret = await getLocalModelDownloadProgress(curModel)
-			 trycount = trycount + 1
-		      }
-		       
-		      if (ret == 200) {
-		          curPublisherElement.areModelsReady.set(curModel, true)
-		      } else if (ret >= 0 && ret <= 100) {
-
-			  const progressContainer = ztoolkit.UI.appendElement({
-			      tag: "progress",
-			      id: "progress",
-			      classList: ["progress"],
-			      properties: {
-			          max: "100",
-				  value: ret 
-			      }
-			  }, modelConfigContainer) as HTMLProgressElement
-			  var timer: undefined | number;
-			  const interval = async () =>{
-			      var ret = await getLocalModelDownloadProgress(curModel)
-
-	                      var usingModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
-			      if (usingModel != curModel) {
-                                  window.clearTimeout(timer)
-			          return 
-			      }
-			      if (ret >= 0 && ret < 100) {
-			          progressContainer.value = ret
-				  timer = window.setTimeout(interval, 2000)
-			      } else if (ret == 100 || ret == 200) {
-			          var curPublisherElement = this.publisher2models.get(curPublisher)
-				  if (curPublisherElement != null) { 
-				      curPublisherElement.areModelsReady.set(curModel, true)
-				  }
-				  progressContainer.remove() 
-				  window.clearTimeout(timer)
-			      }
-			  }
-
-  		          window.setTimeout(interval, 2000)
-		      }
-	          }
-	      }
-	  });
-
-	  if (curPublisherElement && curPublisher == "Local LLM")  return
-          var apiDivId  = "apidiv"
-
-          var apiDivContainer = toolbarContainer.querySelector(".apidiv")!
-	  if (apiDivContainer) {
-		  apiDivContainer.remove()
-	  }
-
-	  apiDivContainer = ztoolkit.UI.appendElement({
-		  tag: "div",
-		  id: apiDivId,
-		  classList: [apiDivId], 
-		  styles: {
-			  margin: "6px",
-			  fontSize: "12px",
-			  borderRadius: "5px"
-		  }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var apiId = "api"
-	  var apitext = curPublisher + " API KEY"
-	  if (!curPublisherElement) {
-		  apitext = "OpenAI API KEY"
-	  } else if (curPublisherElement && curPublisherElement.apiKey.length > 0) {
-		  apitext = curPublisherElement.apiKey
-	  }
-
-	  var apiContainer: HTMLDivElement
-	  if (curPublisherElement && curPublisherElement.apiKey.length > 0) {
-		  apitext = curPublisherElement.apiKey
-
-		  apiContainer = ztoolkit.UI.appendElement({
-			  tag: "input",
-			  id: apiId,
-			  classList: [apiId],
-			  properties: {
-				  type: "text",
-				  value: apitext
-			  }
-		  }, apiDivContainer) as HTMLDivElement
-
-	  } else {
-		  apiContainer = ztoolkit.UI.appendElement({
-			  tag: "input",
-			  id: apiId,
-			  classList: [apiId],
-			  properties: {
-				  type: "text",
-				  placeholder: apitext
-			  }
-		  }, apiDivContainer) as HTMLDivElement
-	  }
-	  if (this.isDarkMode) {
-		  apiContainer.style.color = '#222';
-	  }
-
-	  apiContainer.addEventListener("change", async event => {
-		  if (curPublisher == "OpenAI") {
-			  Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-		  } else if (curPublisher == "Claude-3") {
-			  Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-		  } else if (curPublisher == "Gemini") {
-			  Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-		  } else if (curPublisher == "Customized") {
-			  Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-		  }
-
-		  if (Zotero.isMac) {
-			  const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
-		  }
-
-		  Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
-		  if (curPublisherElement != null) {
-			  curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-		  } else {
-			  curPublisher = "OpenAI"
-			  Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, curPublisher)
-		  }
-
-	  })
+        Zotero.log(curPublisherElement)
+        Zotero.log(Zotero.Prefs.get(`${config.addonRef}.usingModel`))
+        Zotero.log(Zotero.Prefs.get(`${config.addonRef}.usingAPIURL`))
+        Zotero.log(Zotero.Prefs.get(`${config.addonRef}.usingAPIKEY`))
+      })
+    }
   }
-
 
   //
   private buildContainer() {
@@ -4001,109 +3263,50 @@ export default class Views {
   const modelSelector = newNode.querySelector("#chat-input-model-selector");
   modelSelector?.addEventListener("mouseup", async (event) => {
     const rect = modelSelector.getBoundingClientRect();
-    Zotero.log(`Menu position: left=${rect.left}, top=${rect.bottom}`);
     
-    const curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string;
-    const curPublisherConfig = this.publisher2models.get(curPublisher);
-    
-    Zotero.log(`Models: ${JSON.stringify(curPublisherConfig?.models)}`);
-    Zotero.log(`Current Publisher: ${curPublisher}`);
-    Zotero.log(`Publisher Config: ${JSON.stringify(curPublisherConfig)}`);
-    
-    if (!curPublisherConfig) {
-      Zotero.log('No publisher config found');
-      return;
-    }
-    const models = curPublisherConfig.models;
+    // 获取所有自定义模型配置
+    const customModels = JSON.parse(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]');
     const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
 
-    // 创建下拉菜单项
-    const items = models.map(model => ({
-      name: model,
-      isSelected: model === currentModel,
+    // 创建菜单项，修改 isSelected 的判断逻辑
+    const items = customModels.map((config: any) => ({
+      name: config.apimodel,
+      isSelected: currentModel === config.apimodel, // 修改这里，确保正确比较当前模型
       listener: async () => {
-        // 设置选中的模型
-        Zotero.Prefs.set(`${config.addonRef}.usingModel`, model);
-        if (curPublisherConfig) {
-          curPublisherConfig.defaultModelIdx = models.indexOf(model);
-        }
-        // 更新选择器显示
+        // 切换到选中的模型
+        Zotero.Prefs.set(`${config.addonRef}.usingModel`, config.apimodel);
+        Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, config.apiurl);
+        Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, config.apikey);
+
+        // 更新显示
         const modelNameSpan = modelSelector.querySelector(".model-name");
         if (modelNameSpan) {
-          modelNameSpan.textContent = model;
+          modelNameSpan.textContent = config.apimodel;
         }
-        // 高亮选择器
-        modelSelector.style.borderColor = "#1d93ab";
-        setTimeout(() => {
-          modelSelector.style.borderColor = "#e0e0e0";
-        }, 200);
+
+        // 添加调试日志
+        Zotero.log(`Switching to model: ${config.apimodel}`);
+        Zotero.log(`API URL: ${config.apiurl}`);
+        Zotero.log("Current settings:");  // 分开打印
+        Zotero.log("Model: " + Zotero.Prefs.get(`${config.addonRef}.usingModel`));
+        Zotero.log("API URL: " + Zotero.Prefs.get(`${config.addonRef}.usingAPIURL`));
+        Zotero.log("API Key: " + Zotero.Prefs.get(`${config.addonRef}.usingAPIKEY`));
+
+        // 更新 publisher2models 中的当前模型
+        const modelConfig = that.publisher2models.get(config.apimodel);
+        if (modelConfig) {
+          modelConfig.defaultModelIdx = 0;
+        }
+
+        // 触发模型更新事件
+        that.createOrUpdateModelsContainer();
       }
     }));
 
-    // 显示自定义样式的下拉菜单
-    const menuNode = ztoolkit.UI.appendElement({
-      tag: "div",
-      classList: ["model-menu"],
-      styles: {
-        position: "fixed", // 改为 fixed
-        left: `${rect.left}px`,
-        top: `${rect.bottom + 4}px`,
-        width: `${rect.width}px`,
-        backgroundColor: "#ffffff",
-        border: "1px solid #e0e0e0",
-        borderRadius: "4px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        zIndex: "9999", // 增加 z-index
-        overflow: "hidden"
-      }
-    }, newNode); // 改为 newNode 而不是 document.body
-
-    // 添加菜单项
-    items.forEach(item => {
-      const itemNode = ztoolkit.UI.appendElement({
-        tag: "div",
-        styles: {
-          padding: "8px 12px",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
-          color: item.isSelected ? "#1d93ab" : "#444"
-        },
-        properties: {
-          innerHTML: `
-            <span style="flex-grow: 1;">${item.name}</span>
-            ${item.isSelected ? '<span style="margin-left: 8px;">✓</span>' : ''}
-          `
-        },
-        listeners: [{
-          type: "click",
-          listener: async () => {
-            await item.listener();
-            menuNode.remove();
-          }
-        }]
-      }, menuNode);
-
-      // 鼠标悬停效果
-      itemNode.addEventListener("mouseenter", () => {
-        itemNode.style.backgroundColor = "#f5f5f5";
-      });
-      itemNode.addEventListener("mouseleave", () => {
-        itemNode.style.backgroundColor = item.isSelected ? "#f0f0f0" : "#ffffff";
-      });
-    });
-
-    // 点击其他区域关闭菜单
-    const closeMenu = (e: MouseEvent) => {
-      if (!menuNode.contains(e.target as Node)) {
-        menuNode.remove();
-        document.removeEventListener("click", closeMenu);
-      }
-    };
-    setTimeout(() => {
-      document.addEventListener("click", closeMenu);
-    }, 0);
+    // 添加调试日志
+    Zotero.log(`Current model: ${currentModel}`);
+    // 显示下拉菜单
+    this.showModelMenu(items, rect);
   });
 
   //! 3.3 Action for the copy button
@@ -4200,78 +3403,38 @@ export default class Views {
   }
 
   private async callback() {
-    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Starting")
-    this.publisher2models.clear()
-    this.publishers = []
+    this.publisher2models.clear();
+    this.publishers = [];
 
-    this.isInNote = false
-    const defaultModelApiKey = Zotero.Prefs.get(`${config.addonRef}.openaiApiKey`)
-    let modelConfig: ModelConfig = {
-      models: ["gpt-3.5-turbo", "gpt-4"],
-      hasApiKey: true,
-      apiKey: defaultModelApiKey,
-      areModelsReady: new Map([
-        ["gpt-3.5-turbo", true],
-        ["gpt-4", true]
-      ]), // 初始化 areModelsReady
-      defaultModelIdx: 0,
-      apiUrl: "https://api.openai.com/v1/chat/completions"
-    }
+    // 加载自定义模型配置
+    const customModels = JSON.parse(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]');
+    
+    customModels.push({
+      apimodel: "deepseek-chat",  // API 调用时使用的模型标识符
+      displayName: "Deepseek Chat", // 显示在菜单中的名称
+      apiurl: "https://api.deepseek.com/v1/chat/completions",
+      apikey: "sk-xxxx"
+    });
+    
+    // 遍历所有模型配置并添加到系统中
+    customModels.forEach((config: any) => {
+      const modelConfig: ModelConfig = {
+        models: [config.apimodel],
+        hasApiKey: true,
+        apiKey: config.apikey,
+        areModelsReady: new Map([[config.apimodel, true]]),
+        defaultModelIdx: 0,
+        apiUrl: config.apiurl
+      };
+      this.publisher2models.set(config.apimodel, modelConfig);
+      this.publishers.push(config.apimodel);
+    });
 
-    // 取消这些注释
-    this.publisher2models.set("OpenAI", modelConfig)
-    this.publishers.push("OpenAI")
-
-    Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
-    Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
-    Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
-    Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, defaultModelApiKey)
-
-    var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-    var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
-
-    await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-    Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-
-      
-    if (Zotero_Tabs.selectedIndex == 0) {
-      const div = document.querySelector("#item-tree-main-default .row.selected")!
-      if (div) {
-        const rect = div.getBoundingClientRect()
-        this.show(rect.x, rect.y + rect.height)
-      } else {
-        this.show()
-      }
-    } else {
-      const reader = await ztoolkit.Reader.getReader()
-      
-      const div = reader?._iframeWindow?.document.querySelector(".selection-popup")!
-      if (div) {
-        window.setTimeout(() => {
-          this.messages = this.messages.concat(
-            [
-              {
-                role: "user",
-                content: `I am reading a PDF, and the following text is a part of the PDF. Please read it first, and I will ask you some question later: \n${Meet.Zotero.getPDFSelection()}`
-              },
-              {
-                role: "assistant",
-                content: "OK."
-              }
-            ]
-          )
-          const rect = div?.getBoundingClientRect()
-          const windRect = document.documentElement.getBoundingClientRect()
-          const ww = windRect.width *
-            0.01 * Number((Zotero.Prefs.get(`${config.addonRef}.width`) as string).slice(0, -1))
-          ww
-          this.show(rect.left + rect.width * .5 - ww * .5, rect.bottom)
-        }, 233)
-      } else {
-        this.show()
-      }
-    }
-    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Online")
+    // 设置当前使用的模型（使用第一个配置）
+    const firstConfig = customModels[0];
+    Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstConfig.apimodel);
+    Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstConfig.apiurl);
+    Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstConfig.apikey);
   }
 
 
@@ -4388,13 +3551,93 @@ export default class Views {
             event.originalTarget.isContentEditable ||
             "value" in event.originalTarget
           ) {
-            return;
+            return
           }
           
         }
       },
       true
     );
+  }
+
+  private showModelMenu(items: any[], rect: DOMRect) {
+    const doc = Zotero.getMainWindow().document;
+    
+    // 计算菜单应该显示的位置
+    const menuHeight = items.length * 40; // 每个项目40px高度
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    // 创建菜单容器
+    const menuWrapper = ztoolkit.UI.createElement(doc, "div", {
+      classList: ["model-menu-wrapper"],
+      styles: {
+        position: "fixed",
+        left: `${rect.left}px`,
+        // 如果下方空间不够，就向上展开
+        top: spaceBelow >= menuHeight ? 
+          `${rect.bottom + 4}px` : 
+          `${rect.top - menuHeight - 4}px`,
+        width: `${rect.width}px`,
+        backgroundColor: "#ffffff",
+        border: "1px solid #e0e0e0",
+        borderRadius: "4px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        zIndex: "9999"
+      }
+    });
+
+    // 添加菜单项
+    items.forEach(item => {
+      const itemNode = ztoolkit.UI.createElement(doc, "div", {
+        styles: {
+          padding: "8px 12px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
+          color: item.isSelected ? "#1d93ab" : "#444",
+          transition: "background-color 0.2s",
+          fontSize: "13px",
+          borderBottom: "1px solid #f0f0f0" // 添加分隔线
+        },
+        properties: {
+          innerHTML: `
+            <span style="flex-grow: 1;">${item.name}</span>
+            ${item.isSelected ? '<span style="margin-left: 8px;">✓</span>' : ''}
+          `
+        }
+      });
+
+      itemNode.addEventListener("mouseenter", () => {
+        itemNode.style.backgroundColor = "#f5f5f5";
+      });
+
+      itemNode.addEventListener("mouseleave", () => {
+        itemNode.style.backgroundColor = item.isSelected ? "#f0f0f0" : "#ffffff";
+      });
+
+      itemNode.addEventListener("click", async () => {
+        await item.listener();
+        menuWrapper.remove();
+      });
+
+      menuWrapper.appendChild(itemNode);
+    });
+
+    doc.documentElement.appendChild(menuWrapper);
+
+    // 点击外部关闭菜单
+    const closeMenu = (e: MouseEvent) => {
+      if (!menuWrapper.contains(e.target as Node)) {
+        menuWrapper.remove();
+        doc.removeEventListener("click", closeMenu);
+      }
+    };
+
+    setTimeout(() => {
+      doc.addEventListener("click", closeMenu);
+    }, 0);
   }
 }
 
