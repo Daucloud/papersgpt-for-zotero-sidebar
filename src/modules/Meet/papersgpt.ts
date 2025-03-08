@@ -9,6 +9,7 @@ export class ModelConfig {
         public areModelsReady: Map<string, boolean> = new Map();
         public defaultModelIdx: number = 0;
         public apiUrl: string = "";	
+        public displayName: string = "";
 }
 
 

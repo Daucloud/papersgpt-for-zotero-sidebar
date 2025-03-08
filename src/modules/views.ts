@@ -21,9 +21,133 @@ const markdown = require("markdown-it")({
 const mathjax3 = require('markdown-it-mathjax3');
 markdown.use(mathjax3);
 
-export function sleep(time) {
+export function sleep(time: number) {
     return new Promise((resolve) => window.setTimeout(resolve, time));
 }
+
+// Add CSS variables at the top of the file
+const uiConfig = {
+  primaryColor: "#59C0BC",
+  secondaryColor: "#6C757D",
+  successColor: "#28A745",
+  dangerColor: "#DC3545",
+  textColor: "#212529",
+  bgColor: "rgba(255, 255, 255, 0.95)",
+  shadow: `0px 3px 10px rgba(0, 0, 0, 0.1), 0px 16px 31px rgba(0, 0, 0, 0.1)`,
+  borderRadius: "12px",
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+};
+
+// Modify main container style
+const containerStyles = {
+  display: "none",
+  flexDirection: "column",
+  justifyContent: "flex-start",
+  alignItems: "center",
+  position: "fixed",
+  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
+  fontSize: "18px",
+  borderRadius: uiConfig.borderRadius,
+  backgroundColor: uiConfig.bgColor,
+  boxShadow: uiConfig.shadow,
+  fontFamily: fontFamily,
+  zIndex: "3",
+  backdropFilter: "blur(8px)",
+  border: "1px solid rgba(255, 255, 255, 0.2)"
+};
+
+// Modify tag style
+const tagStyles = {
+  display: "inline-block",
+  flexShrink: "0",
+  fontSize: "0.8em",
+  height: "1.5em",
+  color: `${uiConfig.primaryColor}`,
+  backgroundColor: `rgba(89, 192, 188, 0.1)`,
+  borderRadius: "1em",
+  border: "1px solid rgba(89, 192, 188, 0.2)",
+  margin: ".25em",
+  padding: "0 .8em",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: uiConfig.transition,
+  "&:hover": {
+    transform: "translateY(-1px)",
+    boxShadow: "0 2px 8px rgba(89, 192, 188, 0.2)"
+  }
+};
+
+// Modify input box style
+const inputStyles = {
+  width: "calc(100% - 5em)",
+  height: "3em",
+  borderRadius: "8px",
+  border: "1px solid rgba(0, 0, 0, 0.1)",
+  outline: "none",
+  fontFamily: "Consolas",
+  fontSize: "1em",
+  padding: "0 1em",
+  transition: uiConfig.transition,
+  "&:focus": {
+    borderColor: uiConfig.primaryColor,
+    boxShadow: `0 0 0 2px ${uiConfig.primaryColor}33`
+  }
+};
+
+// Modify button style
+const buttonStyles = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "3.2em",
+  width: "3.2em",
+  borderRadius: "8px",
+  border: "none",
+  backgroundColor: uiConfig.primaryColor,
+  transition: uiConfig.transition,
+  cursor: "pointer",
+  "&:hover": {
+    transform: "scale(1.05)",
+    boxShadow: `0 2px 8px ${uiConfig.primaryColor}33`
+  }
+};
+
+// 添加停止按钮样式
+const stopButtonStyles = {
+  display: "none", // 初始时隐藏
+  justifyContent: "center",
+  alignItems: "center",
+  height: "3.2em",
+  width: "3.2em",
+  borderRadius: "8px",
+  border: "none",
+  backgroundColor: "#DC3545", // 使用危险色
+  transition: uiConfig.transition,
+  cursor: "pointer",
+  "&:hover": {
+    transform: "scale(1.05)",
+    boxShadow: `0 2px 8px rgba(220, 53, 69, 0.3)`
+  }
+};
+
+// Modify popup window style
+const popupStyles = {
+  backgroundColor: uiConfig.bgColor,
+  borderRadius: uiConfig.borderRadius,
+  boxShadow: uiConfig.shadow,
+  padding: "1.5em",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: "-8px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "16px",
+    height: "16px",
+    backgroundColor: "inherit",
+    clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)"
+  }
+};
 
 export default class Views {
   private id = "papersgpt-for-zotero";
@@ -70,7 +194,8 @@ export default class Views {
     // @ts-ignore
     window.Meet = Meet
     Meet.Global.views = this
-    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Fix window.matchMedia may be null error
+    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')?.matches || false;
   }
 
   private addStyle() {
@@ -165,189 +290,83 @@ export default class Views {
   }
 
   /**
-   * Set answer area text
-   * @param text 
-   * @param isDone 
+   * Corrected setText method to handle streaming responses
    */
-  public setText_backup(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
-    this.outputContainer.style.display = ""
-    const outputDiv = this.outputContainer.querySelector(".markdown-body")! as HTMLDivElement
-    outputDiv.setAttribute("pureText", text);
-    outputDiv.classList.add("streaming");
-    let ready = () => {
-      if (outputDiv.innerHTML.trim() == "") {
-        outputDiv.innerHTML = `<p></p>`
-      }
-    }
-    ready()
-    /**
-     * Render based on differences, just to preserve cursor blinking
-     */
-    let md2html = () => {
-      let result = markdown.render(text)
-        // .replace(/<mjx-assistive-mml[^>]*>.*?<\/mjx-assistive-mml>/g, "")
-      /**
-       * Monitor differences and replace nodes or text
-       * @param oldNode 
-       * @param newNode 
-       * @returns 
-       */
-      let diffRender = (oldNode: any, newNode: any) => {
-        if (newNode.nodeName == "svg") {
-          oldNode.parentNode.replaceChild(newNode, oldNode)
-          return
-        }
-        if (oldNode.nodeName == "#text" && newNode.nodeName == "#text") { 
-          oldNode.data = newNode.data
-          return
-        } else {
-          if (
-            oldNode.outerHTML == newNode.outerHTML &&
-            oldNode.innerHTML == newNode.innerHTML
-          ) {
-            return
-          }
-        }
-        // There are more old ones than new ones and need to be removed
-        [...oldNode.childNodes].slice(newNode.childNodes.length).forEach((e: any)=>e.remove())
-        for (let i = 0; i < newNode.childNodes.length; i++) {
-          if (i < oldNode.childNodes.length) {
-            if (oldNode.childNodes[i].tagName != newNode.childNodes[i].tagName) {
-              if (oldNode.childNodes[i].tagName == "#text") {
-                oldNode.childNodes[i].remove()
-                oldNode.appendChild(newNode.childNodes[i])
-              } else {
-                oldNode.replaceChild(newNode.childNodes[i], oldNode.childNodes[i])
-              }
-              continue
-            } else {
-              diffRender(oldNode.childNodes[i], newNode.childNodes[i])
+  public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true) {
+    this.updateWelcomeMessage(); // 添加这行
+    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    
+    // For streaming responses that aren't final
+    if (!isDone) {
+        // Find last assistant message
+        const lastAssistantMessage = answer_div.querySelector('.assistant-message:last-child');
+        if (lastAssistantMessage) {
+            // Update existing message content
+            const contentDiv = lastAssistantMessage.querySelector('.message-content');
+            if (contentDiv) {
+                contentDiv.setAttribute("pureText", text);
+                contentDiv.innerHTML = markdown.render(text);
+                if (scrollToNewLine) {
+                    answer_div.scrollTop = answer_div.scrollHeight;
+                }
+                return;
             }
-          } else {
-            oldNode.appendChild(newNode.childNodes[i])
-          }
         }
-      }
-      // Plain text itself does not require MD rendering to prevent deformation due to inconsistent styles
-      let _outputDiv = outputDiv.cloneNode(true) as HTMLDivElement
-      try {
-        _outputDiv.innerHTML = result
-        if (outputDiv.childNodes.length == 0) {
-          outputDiv.innerHTML = result
-        } else {
-          diffRender(outputDiv, _outputDiv)
+        // Create new message container if none exists (only when there's content)
+        else if (text.trim().length > 0) {
+            this.createNewMessage(text, false);
         }
-      } catch {
-        outputDiv.innerText = result
-      }
     }
-    md2html()
-    ready()
-    // @ts-ignore
-    scrollToNewLine && this.outputContainer.scrollBy(0, this.outputContainer.scrollTopMax)
-    if (isDone) {
-      // Any live preview errors at the end should disappear because of the following sentence
-      outputDiv.innerHTML = markdown.render(text)
-      if (isRecord) {
-        this._history.push({ input: Meet.Global.input, output: text })
-      }
-      outputDiv.classList.remove("streaming")
-      if (this.isInNote) {
-        this.hide()
-        // The following is written after completing the answer Better Notes. Two options for master notes
-        Meet.BetterNotes.insertEditorText(outputDiv.innerHTML)
-      }
-    }
-  }
-
-  /**
-   * Set answer area text
-   * @param text 
-   * @param isDone 
-   */
-  public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
-    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement
-
-    answer_div.setAttribute("pureText", text);
-
-    if (answer_div.innerHTML.trim() == "") {
-      answer_div.innerHTML = `<p></p>`
-    }
-
-    /**
-     * Render based on differences, just to preserve cursor blinking
-     */
-    let md2html = () => {
-      let result = markdown.render(text)
-        // .replace(/<mjx-assistive-mml[^>]*>.*?<\/mjx-assistive-mml>/g, "")
-      /**
-       * Monitor differences and replace nodes or text
-       * @param oldNode 
-       * @param newNode 
-       * @returns 
-       */
-      let diffRender = (oldNode: any, newNode: any) => {
-        if (newNode.nodeName == "svg") {
-          oldNode.parentNode.replaceChild(newNode, oldNode)
-          return
+    // For final assistant responses
+    else {
+        // Only create new assistant message if last message was from user
+        if (this.messages.length > 0 && this.messages[this.messages.length - 1].role === 'user') {
+            this.createNewMessage(text, true);
         }
-        if (oldNode.nodeName == "#text" && newNode.nodeName == "#text") { 
-          oldNode.data = newNode.data
-          return
-        } else {
-          if (
-            oldNode.outerHTML == newNode.outerHTML &&
-            oldNode.innerHTML == newNode.innerHTML
-          ) {
-            return
-          }
-        }
-        // There are more old ones than new ones and need to be removed
-        [...oldNode.childNodes].slice(newNode.childNodes.length).forEach((e: any)=>e.remove())
-        for (let i = 0; i < newNode.childNodes.length; i++) {
-          if (i < oldNode.childNodes.length) {
-            if (oldNode.childNodes[i].tagName != newNode.childNodes[i].tagName) {
-              if (oldNode.childNodes[i].tagName == "#text") {
-                oldNode.childNodes[i].remove()
-                oldNode.appendChild(newNode.childNodes[i])
-              } else {
-                oldNode.replaceChild(newNode.childNodes[i], oldNode.childNodes[i])
-              }
-              continue
-            } else {
-              diffRender(oldNode.childNodes[i], newNode.childNodes[i])
+        // Otherwise update last assistant message
+        else {
+            const lastAssistantMessage = answer_div.querySelector('.assistant-message:last-child');
+            if (lastAssistantMessage) {
+                const contentDiv = lastAssistantMessage.querySelector('.message-content');
+                if (contentDiv) {
+                    contentDiv.setAttribute("pureText", text);
+                    contentDiv.innerHTML = markdown.render(text);
+                }
             }
-          } else {
-            oldNode.appendChild(newNode.childNodes[i])
-          }
         }
-      }
-      // Plain text itself does not require MD rendering to prevent deformation due to inconsistent styles
-      let _outputDiv = answer_div.cloneNode(true) as HTMLDivElement
-      try {
-        _outputDiv.innerHTML = result
-        if (answer_div.childNodes.length == 0) {
-          answer_div.innerHTML = result
-        } else {
-          diffRender(answer_div, _outputDiv)
-        }
-      } catch {
-        answer_div.innerText = result
-      }
     }
-    md2html()
-    if (answer_div.innerHTML.trim() == "") {
-      answer_div.innerHTML = `<p></p>`
-    }
-    // scrollToNewLine && answer_div.scrollBy(0, answer_div.scrollTopMax)
 
-    if (isDone) {
-      // Any live preview errors at the end should disappear because of the following sentence
-      // answer_div.innerHTML = markdown.render(text)
-      // ! [c7w] TODO if record
-      // scrollToNewLine && answer_div.scrollBy(0, answer_div.scrollTopMax)
+    if (scrollToNewLine) {
+        answer_div.scrollTop = answer_div.scrollHeight;
     }
-  }
+}
+
+// New method to create messages
+private createNewMessage(text: string, isUser: boolean) {
+    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    const messageContainer = document.createElement('div');
+    messageContainer.className = `chat-message ${isUser ? 'user-message' : 'assistant-message'}`;
+    
+    Object.assign(messageContainer.style, {
+        marginBottom: '12px',
+        padding: '8px',
+        borderRadius: '8px',
+        maxWidth: '85%',
+        position: 'relative',
+        alignSelf: isUser ? 'flex-end' : 'flex-start',
+        marginLeft: isUser ? 'auto' : '0',
+        backgroundColor: isUser ? '#e6f7ff' : '#f5f5f5',
+        color: '#000'
+    });
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content markdown-body';
+    contentDiv.setAttribute("pureText", text);
+    contentDiv.innerHTML = markdown.render(text);
+    messageContainer.appendChild(contentDiv);
+
+    answer_div.appendChild(messageContainer);
+}
 
   private addDragEvent(node: HTMLDivElement) {
     let posX: number, posY: number
@@ -505,876 +524,123 @@ export default class Views {
 
   //! [c7w] TODO
   public createOrUpdateModelsContainer() {
-      var curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string
-      const toolbarContainer = this.toolbarContainer
-      if (toolbarContainer == null) {
-          Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
-	  return 
-      }
-      const publishConfigContainer = toolbarContainer.querySelector(".publisher")!
-      var publishSelectContainer = toolbarContainer.querySelector(".publisherSelect")!
-      if (publishSelectContainer) {
-	  publishSelectContainer.remove() 
+    var curPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`) as string
+    const toolbarContainer = this.toolbarContainer
+    if (toolbarContainer == null) {
+      Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
+      return 
+    }
+
+    // Only handle Customized publisher configuration
+    if (curPublisher == "Customized") {
+      const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
+      
+      // Remove existing containers if any
+      const modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
+      if (modelSelectDivContainer) {
+        modelSelectDivContainer.remove()
       }
 
-      const publishId = "publishid"
-      publishSelectContainer = ztoolkit.UI.appendElement({
-	  tag: "select",
-	  id: publishId,
-	  classList: ["publisherSelect"],
-	  properties: {
-	      value: "",
-	  }
-      }, publishConfigContainer) as HTMLSelectElement//HTMLDivElement
+      var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
+      if (customModelDivContainer) {
+        customModelDivContainer.remove()
+      }
+
+      var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv") 
+      if (apiUrlContainer) {
+        apiUrlContainer.remove()
+      }
+
+      // Add API URL input
+      apiUrlContainer = ztoolkit.UI.appendElement({
+        tag: "div",
+        id: "apiUrlDiv", 
+        classList: ["apiUrlDiv"],
+        styles: {
+          margin: "6px",
+          fontSize: "12px",
+          borderRadius: "5px"
+        }
+      }, modelConfigContainer) as HTMLDivElement
+
+      const curPublisherElement = this.publisher2models.get(curPublisher)
+      const apiUrlInputContainer = ztoolkit.UI.appendElement({
+        tag: "input",
+        id: "apiUrl",
+        classList: ["apiUrl"],
+        properties: {
+          type: "text",
+          value: curPublisherElement?.apiUrl || "",
+          placeholder: "Customized API URL"
+        }
+      }, apiUrlContainer) as HTMLDivElement
 
       if (this.isDarkMode) {
-	publishSelectContainer.style.color = '#222';
+        apiUrlInputContainer.style.color = '#222';
       }
 
-      var publisherSelectIdx = 0 
-      for (var i = 0; i < this.publishers.length; i++) {
-	  if (this.publishers[i] == curPublisher) {
-	      publisherSelectIdx = i 
-	  }	
-	  var optionId = "option" + i 
-	  const optionContainer = ztoolkit.UI.appendElement({
-   	      tag: "option",
-	      id: optionId,
-	      properties: {
-		  innerHTML: this.publishers[i],
-		  value: this.publishers[i]
-	      }
-	  }, publishSelectContainer) as HTMLDivElement
+      apiUrlInputContainer.addEventListener("change", async event => {
+        const curPublisherElement = this.publisher2models.get(curPublisher)
+        if (curPublisherElement != null) {
+          curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
+          Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>apiUrlInputContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiUrlInputContainer).value)
+        }
+      })
+
+      // Add Model Name input
+      customModelDivContainer = ztoolkit.UI.appendElement({
+        tag: "div",
+        id: "customModelDiv",
+        classList: ["customModelDiv"],
+        styles: {
+          margin: "6px",
+          fontSize: "12px",
+          borderRadius: "5px"
+        }
+      }, modelConfigContainer) as HTMLDivElement
+
+      const customModelContainer = ztoolkit.UI.appendElement({
+        tag: "input",
+        id: "customModelId",
+        properties: {
+          type: "text",
+          value: curPublisherElement?.models[0] || "",
+          placeholder: "Customized Model Name"
+        }
+      }, customModelDivContainer) as HTMLDivElement
+
+      if (this.isDarkMode) {
+        customModelContainer.style.color = '#222';
       }
-      publishSelectContainer.selectedIndex = publisherSelectIdx 
 
-
-      publishSelectContainer.addEventListener("change", async event => {
-	  event.stopPropagation();
-
-	  curPublisher = publishSelectContainer.value
-	  Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, curPublisher)
-	  var curPublisherElement = this.publisher2models.get(curPublisher)
-	  if (curPublisherElement == null) return 
-	  var curAPIKey: string = curPublisherElement.apiKey
-	  var curAPIUrl: string = curPublisherElement.apiUrl
-	  Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, curAPIKey)
-	  Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, curAPIUrl)
-
-	  for (var i = 0; i < this.publishers.length; i++) {
-	      if (this.publishers[i] == curPublisher) {
-		  publishSelectContainer.selectedIndex = i
-		  break 
-	      }	  
-	  }
-
-	  curShowModels = curPublisherElement.models
-
-          const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-	  
-	  var modelNode = document.getElementById("modelSelect") as HTMLSelectElement 
-	  if (modelNode != null) {
-	      modelNode.innerHTML = ""
-	  } else if (curPublisher != "Customized") {
-        	  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-
-		  if (modelSelectDivContainer != null) {
-			  modelSelectDivContainer.remove() 
-		  } 
-
-		  var modelSelectDivId  = "modelSelectDiv"
-		  modelSelectDivContainer = ztoolkit.UI.appendElement({
-			  tag: "div",
-			  id: modelSelectDivId,
-			  classList: ["modelSelectDivCSS"],
-			  styles: {
-				  margin: "6px"
-			  }
-		  }, modelConfigContainer) as HTMLDivElement	
-
-
-		  modelNode = toolbarContainer.querySelector(".modelSelect")!
-		  if (modelNode) {
-			  modelNode.remove()
-		  }
-
-		  var modelSelectId = "modelSelect"
-		  modelNode = ztoolkit.UI.appendElement({
-			  tag: "select",
-			  id: modelSelectId,
-			  classList: ["modelSelect"],
-		  }, modelSelectDivContainer) as HTMLSelectElement // DivElement
-
-                  if (this.isDarkMode) {
-	            modelNode.style.color = '#222';
-                  }
-	  } 
-
-	  for (var i = 0; i < curShowModels.length; i++) {
-	      var optionId = "optionModel" + i
-	      var modelName = curShowModels[i]
-	      if (modelName.includes(":")) {
-	          let index = modelName.indexOf(":")
-                  modelName = modelName.substr(0, index)  		   
-	      }
-	      const optionContainer = ztoolkit.UI.appendElement({
-		  tag: "option",
-		  id: optionId,
-		  properties: {
-	              innerHTML: modelName,
-		      value: modelName 
-		  }
-	      }, modelNode) as HTMLDivElement
-	  }
-	  modelNode.selectedIndex = 0 
-	  var curModel = curShowModels[modelNode.selectedIndex]
-	  Zotero.Prefs.set(`${config.addonRef}.usingModel`, curModel)
-
-	  var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv")
-	  if (apiUrlContainer) {
-	      apiUrlContainer.remove()  
-	  }
-
-	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
-          if (customModelDivContainer) {
-	      customModelDivContainer.remove()  
-	  }
-	  
-	  if (curPublisher == "Customized") {
-	      var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-
-	      if (modelSelectDivContainer != null) {
-		  modelSelectDivContainer.remove() 
-	      }
-
-	      var apiUrlId  = "apiUrlDiv"
-	      apiUrlContainer = ztoolkit.UI.appendElement({
-	          tag: "div",
-		  id: apiUrlId,
-		  classList: [apiUrlId],
-		  styles: {
-		      margin: "6px",
-		      fontSize: "12px",
-                      borderRadius: "5px"
-		  }
-	      }, modelConfigContainer) as HTMLDivElement	
-
-	      var apiUrl = "apiUrl"
-	      var apitext = curPublisher + " API URL"
-	      var apiUrlInputContainer: HTMLDivElement
-	      if (curPublisherElement.apiUrl.length > 0) {
- 	          apitext = curPublisherElement.apiUrl
-
-		  apiUrlInputContainer = ztoolkit.UI.appendElement({
-  		      tag: "input",
-		      id: apiUrl,
-		      classList: [apiUrl],
-		      properties: {
-		          type: "text",
-		          value: apitext
-		      }
-		  }, apiUrlContainer) as HTMLDivElement
-	      } else {
-		  apiUrlInputContainer = ztoolkit.UI.appendElement({
-		      tag: "input",
-		      id: apiUrl,
-		      classList: [apiUrl],
-		      properties: {
-			  type: "text",
-			  placeholder: apitext
-		      }
-		  }, apiUrlContainer) as HTMLDivElement
-	      }
-
-	      if (this.isDarkMode) {
-	        apiUrlInputContainer.style.color = '#222';
-	      }
-	      
-	      apiUrlInputContainer.addEventListener("change", async event => {
-		  if ((<HTMLInputElement>apiUrlInputContainer).value == null) return
-	          const curPublisherElement = this.publisher2models.get(curPublisher)
-		  if (curPublisherElement != null) {
-		      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
-		      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
-		      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
-		  } 
-	      })
-
-
-              var customModelDivId  = "customModelDiv"
-	      customModelDivContainer = ztoolkit.UI.appendElement({
-	          tag: "div",
-		  id: customModelDivId,
-		  classList: [customModelDivId],
-		  styles: {
-		      margin: "6px",
-		      fontSize: "12px",
-                      borderRadius: "5px"
-		  }
-	      }, modelConfigContainer) as HTMLDivElement	
-
-	      var customModelId = "customModelId"
-	      var customModelText = curPublisher + " Model Name"
-	      var customModelContainer: HTMLDivElement
-	      if (curPublisherElement.models.length > 0) {
- 	          customModelText = curPublisherElement.models[0]
-
-		  customModelContainer = ztoolkit.UI.appendElement({
-  		      tag: "input",
-		      id: customModelId,
-		      properties: {
-		          type: "text",
-		          value: customModelText
-		      }
-		  }, customModelDivContainer) as HTMLDivElement
-	      } else {
-		  customModelContainer = ztoolkit.UI.appendElement({
-		      tag: "input",
-		      id: customModelId,
-		      properties: {
-			  type: "text",
-			  placeholder: customModelText
-		      }
-		  }, customModelDivContainer) as HTMLDivElement
-	      }
-
-              if (this.isDarkMode) {
-	        customModelContainer.style.color = '#222';
-	      }
-
-	      customModelContainer.addEventListener("change", async event => {
-		  if ((<HTMLInputElement>customModelContainer).value == null) return
-		  const curPublisherElement = this.publisher2models.get(curPublisher)
-          	  if (curPublisherElement != null) {
-		      if (curPublisherElement.models.length > 0) {
-		          curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
-		      } else {
-		          curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
-		      }
-		      Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
-		      Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
-		  }
-	      })
-	  } 
-
-	  var apiDivNode = document.getElementById("apidiv") 
-	  if (curPublisher == "Local LLM") {
-	      if (apiDivNode != null) {
-		  apiDivNode.remove()
-	      }
-
-	      const progressContainer = toolbarContainer.querySelector(".progress")! as HTMLProgressElement
-	      if (progressContainer != null) {
-		  progressContainer.remove()  
-	      }
-
-	      var isModelReady = curPublisherElement.areModelsReady.get(curModel)
-	     if (isModelReady)  {
-	         var retValue = await selectModel(curPublisher, curModel)
-	         if (!retValue) {
-   	             Zotero.log("invoke selectModel error!")
-	         }
-	     } else {
-		  var ret = await getLocalModelDownloadProgress(curModel)
-
-		  var trycount = 0
-		  while (ret < 0 || ret > 210) {
-		      if (trycount >= 5) break
-		      await sleep(1000) 
-		      ret = await getLocalModelDownloadProgress(curModel)
-		      trycount = trycount + 1
-		  }
-
-		  if (ret == 200) {
-		      curPublisherElement.areModelsReady.set(curModel, true)
-		  } else if (/*ret == -1 ||*/ (ret >= 0 && ret <= 100)) {
-		      //if (ret == -1) ret = 0
-
-		      const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-
-		      if (modelConfigContainer != null) {
-			  const progressContainer = ztoolkit.UI.appendElement({
-		       	      tag: "progress",
-			      id: "progress",
-			      classList: ["progress"],
-			      properties: {
-				  max: "100",
-				  value: ret 
-			      }
-		          }, modelConfigContainer) as HTMLProgressElement
-
-
-			  var timer: undefined | number;
-			  const interval = async () =>{
-		              var ret = await getLocalModelDownloadProgress(curModel)
-
-			      var usingModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
-			      if (usingModel != curModel) {
-                                  window.clearTimeout(timer)
-			          return 
-			      }
-
-			      if (ret >= 0 && ret < 100) {
-				  progressContainer.value = ret
-				  timer = window.setTimeout(interval, 2000)
-			      } else {
-				  if (ret == 100 || ret == 200) {
-			   	      var curPublisherElement = this.publisher2models.get(curPublisher)
-				      if (curPublisherElement != null)  { 
-					  curPublisherElement.areModelsReady.set(curModel, true)
-				      }
-				  }
-				  progressContainer.remove() 
-				  window.clearTimeout(timer)
-			      }
-			  }
-
-			  window.setTimeout(interval, 2000)
-		      }
-		  }
-	      }
-	  } else {
-	     if (apiDivNode != null) {
-	         apiDivNode.remove() 
-	     }
-
-	     const progressContainer = toolbarContainer.querySelector(".progress")! as HTMLProgressElement
-	     if (progressContainer != null) {
-		 progressContainer.remove()  
-	     }
-
-             const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-	     var apiDivId  = "apidiv"
-	     const apiDivContainer = ztoolkit.UI.appendElement({
-	         tag: "div",
-		 id: apiDivId,
-		 classList: [apiDivId],
-		 styles: {
-		     margin: "6px",
-	             fontSize: "12px",
-                     borderRadius: "5px"
-		 }
-	     }, modelConfigContainer) as HTMLDivElement	
-
-	     var apiId = "api"
-	     var apitext = curPublisher + " API KEY"
-	     var apiContainer: HTMLDivElement
-	     if (curPublisherElement.apiKey.length > 0) {
- 	         apitext = curPublisherElement.apiKey
-
-		 apiContainer = ztoolkit.UI.appendElement({
-  		     tag: "input",
-		     id: apiId,
-		     classList: [apiId],
-		     properties: {
-		         type: "text",
-		         value: apitext
-		     }
-		 }, apiDivContainer) as HTMLDivElement
-	     } else {
-		  apiContainer = ztoolkit.UI.appendElement({
-		      tag: "input",
-		      id: apiId,
-		      classList: [apiId],
-		      properties: {
-			  type: "text",
-			  placeholder: apitext
-		      }
-		  }, apiDivContainer) as HTMLDivElement
-	     }
- 
-	     if (this.isDarkMode) {
-	       apiContainer.style.color = '#222';
-	     }
-	     
-	     apiContainer.addEventListener("change", async event => {
-		 if ((<HTMLInputElement>apiContainer).value == null) return
-		 const curPublisherElement = this.publisher2models.get(curPublisher)
-		     if (curPublisherElement != null) { 
-		         curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-			 Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
-			 if (curPublisher == "OpenAI") {
-			     Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-			 } else if (curPublisher == "Claude-3") {
-			     Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-			 } else if (curPublisher == "Gemini") {
-			     Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-			 } else if (curPublisher == "Customized") {
-			     Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-			 }
-			 if (Zotero.isMac) {
-			     const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
-			 }
-		     }
-	     })
-	  }
-	});
-
-        var curPublisherElement = this.publisher2models.get(curPublisher)
-       	if (curPublisherElement && curPublisher == "Customized") {
-          const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-	  var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-
-	  if (modelSelectDivContainer != null) {
-	      modelSelectDivContainer.remove() 
-	  }
-
-	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
-          if (customModelDivContainer) {
-	      customModelDivContainer.remove()  
-	  }
-	  
-	  var apiUrlId  = "apiUrlDiv"
-	  var apiUrlContainer = toolbarContainer.querySelector(".apiUrlDiv")
-	  if (apiUrlContainer) {
-	      apiUrlContainer.remove()  
-	  }
-
-	  apiUrlContainer = ztoolkit.UI.appendElement({
-	    tag: "div",
-	    id: apiUrlId,
-	    classList: [apiUrlId],
-	    styles: {
-	      margin: "6px",
-	      fontSize: "12px",
-              borderRadius: "5px"
-	    }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var apiUrl = "apiUrl"
-	  var apitext = curPublisher + " API URL"
-	  var apiUrlInputContainer: HTMLDivElement
-	  if (curPublisherElement.apiUrl.length > 0) {
- 	    apitext = curPublisherElement.apiUrl
-
-	    apiUrlInputContainer = ztoolkit.UI.appendElement({
-  	      tag: "input",
-	      id: apiUrl,
-	      classList: [apiUrl],
-	      properties: {
-	        type: "text",
-		value: apitext
-	      }
-	    }, apiUrlContainer) as HTMLDivElement
-	  } else {
-	    apiUrlInputContainer = ztoolkit.UI.appendElement({
-	      tag: "input",
-	      id: apiUrl,
-	      classList: [apiUrl],
-	      properties: {
-		type: "text",
-		placeholder: apitext
-	      }
-	    }, apiUrlContainer) as HTMLDivElement
-	  }
-
-	  if (this.isDarkMode) {
-	    apiUrlInputContainer.style.color = '#222';
-	  }
-	      
-	  apiUrlInputContainer.addEventListener("change", async event => {
-	    if ((<HTMLInputElement>apiUrlInputContainer).value == null) return
-	    const curPublisherElement = this.publisher2models.get(curPublisher)
-	    if (curPublisherElement != null) {
-	      curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
-	      Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
-	      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
-	    } 
-	  })
-
-	  var customModelDivContainer = toolbarContainer.querySelector(".customModelDiv")
-          if (customModelDivContainer) {
-	      customModelDivContainer.remove()  
-	  }
-
-          var customModelDivId  = "customModelDiv"
-	  customModelDivContainer = ztoolkit.UI.appendElement({
-	    tag: "div",
-	    id: customModelDivId,
-	    classList: [customModelDivId],
-	    styles: {
-	      margin: "6px",
-	      fontSize: "12px",
-              borderRadius: "5px"
-            }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var customModelId = "customModelId"
-	  var customModelText = curPublisher + " Model Name"
-	  var customModelContainer: HTMLDivElement
-	  if (curPublisherElement.models.length > 0) {
- 	    customModelText = curPublisherElement.models[0]
-
-	    customModelContainer = ztoolkit.UI.appendElement({
-  	      tag: "input",
-	      id: customModelId,
-	      properties: {
-	        type: "text",
-	        value: customModelText
-	      }
-	    }, customModelDivContainer) as HTMLDivElement
-	  } else {
-	    customModelContainer = ztoolkit.UI.appendElement({
-	      tag: "input",
-	      id: customModelId,
-	      properties: {
-		type: "text",
-		placeholder: customModelText
-	      }
-	    }, customModelDivContainer) as HTMLDivElement
-	  }
-
-          if (this.isDarkMode) {
-	    customModelContainer.style.color = '#222';
-	  }
-
-	  customModelContainer.addEventListener("change", async event => {
-	    if ((<HTMLInputElement>customModelContainer).value == null) return
-	    const curPublisherElement = this.publisher2models.get(curPublisher)
-            if (curPublisherElement != null) {
-	      if (curPublisherElement.models.length > 0) {
-	        curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
-	      } else {
-	        curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
-	      }
-	      Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
-	      Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
-	    }
-	  })
-          
-          var apiDivId  = "apidiv"
-	  
-	  var apiDivContainerExist = toolbarContainer.querySelector(".apidiv")
-          if (apiDivContainerExist) {
-	      apiDivContainerExist.remove()  
-	  }
-	  
-	  const apiDivContainer = ztoolkit.UI.appendElement({
-	    tag: "div",
-	    id: apiDivId,
-	    classList: [apiDivId],
-	    styles: {
-	      margin: "6px",
-	      fontSize: "12px",
-              borderRadius: "5px"
-	    }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var apiId = "api"
-	  var apitext = curPublisher + " API KEY"
-	  var apiContainer: HTMLDivElement
-	  if (curPublisherElement.apiKey.length > 0) {
- 	    apitext = curPublisherElement.apiKey
-
-     	    apiContainer = ztoolkit.UI.appendElement({
-  	      tag: "input",
-	      id: apiId,
-	      classList: [apiId],
-	      properties: {
-	        type: "text",
-                value: apitext
-	      }
-            }, apiDivContainer) as HTMLDivElement
-	  } else {
-	    apiContainer = ztoolkit.UI.appendElement({
-	      tag: "input",
-	      id: apiId,
-	      classList: [apiId],
-	      properties: {
-	        type: "text",
-	        placeholder: apitext
-	      }
-	    }, apiDivContainer) as HTMLDivElement
-	  }
- 
-	  if (this.isDarkMode) {
-	    apiContainer.style.color = '#222';
-	  }
-	     
-	  apiContainer.addEventListener("change", async event => {
-	    if ((<HTMLInputElement>apiContainer).value == null) return
-	    const curPublisherElement = this.publisher2models.get(curPublisher)
-	    if (curPublisherElement != null) { 
-	      curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-	      Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
-	      if (curPublisher == "OpenAI") {
-	        Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-	      } else if (curPublisher == "Claude-3") {
-		Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-	      } else if (curPublisher == "Gemini") {
-		Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-	      } else if (curPublisher == "Customized") {
-		Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-	      }
-	      if (Zotero.isMac) {
-	        const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
-	      }
-	    }
-	  })
-          
-	  return
-	}
-        
-	const modelConfigContainer = toolbarContainer.querySelector(".model")! as HTMLDivElement
-
-	var modelSelectDivContainer = toolbarContainer.querySelector(".modelSelectDivCSS")
-  
-	if (modelSelectDivContainer != null) {
-	    modelSelectDivContainer.remove() 
-	} 
-
-	var modelSelectDivId  = "modelSelectDiv"
-	modelSelectDivContainer = ztoolkit.UI.appendElement({
-		  tag: "div",
-		  id: modelSelectDivId,
-		  classList: ["modelSelectDivCSS"],
-		  styles: {
-			  margin: "6px"
-		  }
-	}, modelConfigContainer) as HTMLDivElement	
-
-
-	var modelSelectContainer = toolbarContainer.querySelector(".modelSelect")!
-        if (modelSelectContainer) {
-	    modelSelectContainer.remove()
+      customModelContainer.addEventListener("change", async event => {
+        const curPublisherElement = this.publisher2models.get(curPublisher)
+        if (curPublisherElement != null) {
+          if (curPublisherElement.models.length > 0) {
+            curPublisherElement.models[0] = (<HTMLInputElement>customModelContainer).value
+          } else {
+            curPublisherElement.models.push((<HTMLInputElement>customModelContainer).value)
+          }
+          Zotero.Prefs.set(`${config.addonRef}.customModelApiModel`, (<HTMLInputElement>customModelContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>customModelContainer).value)
         }
-
-	var modelSelectApiContainer = toolbarContainer.querySelector(".apidiv")!
-        if (modelSelectApiContainer) {
-	    modelSelectApiContainer.remove()
-        }
-
-
-	var modelSelectId = "modelSelect"
-	modelSelectContainer = ztoolkit.UI.appendElement({
-		  tag: "select",
-		  id: modelSelectId,
-		  classList: ["modelSelect"],
-	}, modelSelectDivContainer) as HTMLSelectElement // DivElement
-
-	if (this.isDarkMode) {
-	  modelSelectContainer.style.color = '#222';
-	}
-
-	var curShowPublisher = this.publisher2models.get(curPublisher)
-	if (!curPublisherElement)   {
-          curShowPublisher = this.publisher2models.get("OpenAI")	
-          curShowPublisher.defaultModelIdx = 0  
-	}	
-	var curShowModels = curShowPublisher.models
-
-	var modelSelectedIdx = 0
-	for (var i = 0; i < curShowModels.length; i++) {
-	    var optionId = "optionModel" + i
-
-	    var curModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
-	    if (curModel === curShowModels[i]) {
-		    modelSelectedIdx = i
-	    }
-	    var modelName = curShowModels[i]
-	    if (modelName.includes(":")) {
-	        let index = modelName.indexOf(":")
-                modelName = modelName.substr(0, index)  		   
-	    }
-
-
-	    const optionContainer = ztoolkit.UI.appendElement({
-	        tag: "option",
-	        id: optionId,
-		properties: {
-	    	    innerHTML: modelName,
-		    value: modelName 
-		}
-	    }, modelSelectContainer) as HTMLDivElement
-	}
-
-        modelSelectContainer.selectedIndex = modelSelectedIdx 
-
-	modelSelectContainer.addEventListener("change", async event => {
-            var curModel = modelSelectContainer.value
-
-	    for (var i = 0; i < curShowModels.length; i++) {
-	       if (curModel == curShowModels[i] || ((curPublisher == "Claude-3" || curPublisher == "Gemini") && curShowModels[i].includes(curModel))) {
-	           Zotero.Prefs.set(`${config.addonRef}.usingModel`, curShowModels[i])
-		   modelSelectContainer.selectedIndex = i
-		   var curPublisherElement = this.publisher2models.get(curPublisher)
-		   if (curPublisherElement != null) {
-		       curPublisherElement.defaultModelIdx = i
-		   }
-		   break	    
-	       }	
-	    }
-
-	      if (curPublisher == "Local LLM") {
-		  const progressContainer = modelConfigContainer.querySelector(".progress")! as HTMLProgressElement
-		  if (progressContainer != null) {
-		      progressContainer.remove()  
-		  }
-		  var curPublisherElement = this.publisher2models.get(curPublisher)
-		  var isModelReady = curPublisherElement.areModelsReady.get(curModel)
-		  if (isModelReady)  {
-		      var retValue = await selectModel(curPublisher, curModel)
-		      if (!retValue) {
-   		          Zotero.log("invoke selectModel error!")
-		      }
-		  } else if  (curPublisherElement != null 
-		      && !isModelReady) {
-		      var ret = await getLocalModelDownloadProgress(curModel)
-
-		      var trycount = 0
-		      while (ret < 0 || ret > 210) {
-			 if (trycount >= 5) break
-		         await sleep(1000) 
-		         ret = await getLocalModelDownloadProgress(curModel)
-			 trycount = trycount + 1
-		      }
-		       
-		      if (ret == 200) {
-		          curPublisherElement.areModelsReady.set(curModel, true)
-		      } else if (ret >= 0 && ret <= 100) {
-
-			  const progressContainer = ztoolkit.UI.appendElement({
-			      tag: "progress",
-			      id: "progress",
-			      classList: ["progress"],
-			      properties: {
-			          max: "100",
-				  value: ret 
-			      }
-			  }, modelConfigContainer) as HTMLProgressElement
-			  var timer: undefined | number;
-			  const interval = async () =>{
-			      var ret = await getLocalModelDownloadProgress(curModel)
-
-	                      var usingModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`)
-			      if (usingModel != curModel) {
-                                  window.clearTimeout(timer)
-			          return 
-			      }
-			      if (ret >= 0 && ret < 100) {
-			          progressContainer.value = ret
-				  timer = window.setTimeout(interval, 2000)
-			      } else if (ret == 100 || ret == 200) {
-			          var curPublisherElement = this.publisher2models.get(curPublisher)
-				  if (curPublisherElement != null) { 
-				      curPublisherElement.areModelsReady.set(curModel, true)
-				  }
-				  progressContainer.remove() 
-				  window.clearTimeout(timer)
-			      }
-			  }
-
-  		          window.setTimeout(interval, 2000)
-		      }
-	          }
-	      }
-	  });
-
-	  if (curPublisherElement && curPublisher == "Local LLM")  return
-          var apiDivId  = "apidiv"
-
-          var apiDivContainer = toolbarContainer.querySelector(".apidiv")!
-	  if (apiDivContainer) {
-		  apiDivContainer.remove()
-	  }
-
-	  apiDivContainer = ztoolkit.UI.appendElement({
-		  tag: "div",
-		  id: apiDivId,
-		  classList: [apiDivId], 
-		  styles: {
-			  margin: "6px",
-			  fontSize: "12px",
-			  borderRadius: "5px"
-		  }
-	  }, modelConfigContainer) as HTMLDivElement	
-
-	  var apiId = "api"
-	  var apitext = curPublisher + " API KEY"
-	  if (!curPublisherElement) {
-		  apitext = "OpenAI API KEY"
-	  } else if (curPublisherElement && curPublisherElement.apiKey.length > 0) {
-		  apitext = curPublisherElement.apiKey
-	  }
-
-	  var apiContainer: HTMLDivElement
-	  if (curPublisherElement && curPublisherElement.apiKey.length > 0) {
-		  apitext = curPublisherElement.apiKey
-
-		  apiContainer = ztoolkit.UI.appendElement({
-			  tag: "input",
-			  id: apiId,
-			  classList: [apiId],
-			  properties: {
-				  type: "text",
-				  value: apitext
-			  }
-		  }, apiDivContainer) as HTMLDivElement
-
-	  } else {
-		  apiContainer = ztoolkit.UI.appendElement({
-			  tag: "input",
-			  id: apiId,
-			  classList: [apiId],
-			  properties: {
-				  type: "text",
-				  placeholder: apitext
-			  }
-		  }, apiDivContainer) as HTMLDivElement
-	  }
-	  if (this.isDarkMode) {
-		  apiContainer.style.color = '#222';
-	  }
-
-	  apiContainer.addEventListener("change", async event => {
-		  if (curPublisher == "OpenAI") {
-			  Zotero.Prefs.set(`${config.addonRef}.openaiApiKey`, (<HTMLInputElement>apiContainer).value)
-		  } else if (curPublisher == "Claude-3") {
-			  Zotero.Prefs.set(`${config.addonRef}.claudeApiKey`, (<HTMLInputElement>apiContainer).value)
-		  } else if (curPublisher == "Gemini") {
-			  Zotero.Prefs.set(`${config.addonRef}.geminiApiKey`, (<HTMLInputElement>apiContainer).value)
-		  } else if (curPublisher == "Customized") {
-			  Zotero.Prefs.set(`${config.addonRef}.customModelApiKey`, (<HTMLInputElement>apiContainer).value)
-		  }
-
-		  if (Zotero.isMac) {
-			  const response = await setApiKey(curPublisher, (<HTMLInputElement>apiContainer).value)
-		  }
-
-		  Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiContainer).value)
-		  if (curPublisherElement != null) {
-			  curPublisherElement.apiKey = (<HTMLInputElement>apiContainer).value
-		  } else {
-			  curPublisher = "OpenAI"
-			  Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, curPublisher)
-		  }
-
-	  })
+        Zotero.log(curPublisherElement)
+        Zotero.log(Zotero.Prefs.get(`${config.addonRef}.usingModel`))
+        Zotero.log(Zotero.Prefs.get(`${config.addonRef}.usingAPIURL`))
+        Zotero.log(Zotero.Prefs.get(`${config.addonRef}.usingAPIKEY`))
+      })
+    }
   }
-
 
   //
   private buildContainer() {
     const container = ztoolkit.UI.createElement(document, "div", {
+      tag: "div",
       id: this.id,
-      styles: {
-        display: "none",
-        flexDirection: "column",
-        justifyContent: "flex-start",
-        alignItems: "center",
-        position: "fixed",
-        width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-        // height: "4em",
-        fontSize: "18px",
-        borderRadius: "10px",
-        backgroundColor: "#fff",
-        boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-                    0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-                    0px 30px 90px rgba(0, 0, 0, 0.2)`,
-        fontFamily: fontFamily,
-	zIndex:1
-      }
-    })
+      styles: containerStyles
+    });
     this.addDragEvent(container)
     this.bindCtrlScrollZoom(container)
 
@@ -1452,9 +718,13 @@ export default class Views {
     registerContainer.addEventListener("mouseup", async event => {
         window.alert = function(msg, container) {
 
-	    const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
-	      id: "languagesBg",
-	      styles: {
+	    const backgroundContainer = ztoolkit.UI.createElement(
+	      document, 
+	      "div", 
+	      "html", // 作为第三个参数
+	      {  // 配置对象作为第四个参数
+	        id: "languagesBg",
+	        styles: {
                 display: "block",
 		flexDirection: "column",
 		justifyContent: "flex-start",
@@ -1469,8 +739,8 @@ export default class Views {
 		0px 30px 90px rgba(0, 0, 0, 0.2)`,
 		fontFamily: fontFamily,
 		opacity: 0.6,
-		zIndex:2, 
-              },
+		zIndex: "2", 
+              }
             })
 
             const subscriberShowContainer = ztoolkit.UI.createElement(document, "div", {
@@ -1489,37 +759,37 @@ export default class Views {
 		0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
 		0px 30px 90px rgba(0, 0, 0, 0.2)`,
 		fontFamily: fontFamily,
-		zIndex:3, 
+		zIndex: "3", 
 	      },
             })
 
             const subscriberCloseContainer = ztoolkit.UI.appendElement({
-		tag: "div",
-		id: "subscriberClose",
-		styles: {
-		  display: "flex",
-		  flexDirection: "column",
-		  justifyContent: "flex-start",
-		  //justifyContent: "center",
-		  alignItems: "start",
-		  position: "fixed",
-		  //width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-		  fontSize: "15px",
-		  borderRadius: "10px",
-		  backgroundColor: "#fff",
-		  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-		  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-		  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-		  fontFamily: fontFamily,
-		  color: "#1e90ff",
-		  cursor: "pointer",
-		  zIndex:3, 
-		  margin: "10px" 
-		},
-		properties: {
-		  value: "",
-		  innerHTML: "X" 
-		}
+			tag: "div",
+			id: "subscriberClose",
+			styles: {
+			  display: "flex",
+			  flexDirection: "column",
+			  justifyContent: "flex-start",
+			  //justifyContent: "center",
+			  alignItems: "start",
+			  position: "fixed",
+			  //width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
+			  fontSize: "15px",
+			  borderRadius: "10px",
+			  backgroundColor: "#fff",
+			  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
+			  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
+			  0px 30px 90px rgba(0, 0, 0, 0.2)`,
+			  fontFamily: fontFamily,
+			  color: "#1e90ff",
+			  cursor: "pointer",
+			  zIndex: "3", 
+			  margin: "10px" 
+			},
+			properties: {
+			  value: "",
+			  innerHTML: "X" 
+			}
 	    }, subscriberShowContainer) as HTMLDivElement
 
             subscriberCloseContainer.addEventListener("click", async event => {
@@ -1547,7 +817,7 @@ export default class Views {
 		  fontFamily: fontFamily,
 		  //color: "#1e90ff",
 		  //cursor: "pointer",
-		  zIndex:3, 
+		  zIndex: "3", 
 		  //margin: "10px" 
 		},
 		
@@ -1598,7 +868,7 @@ export default class Views {
 		      fontFamily: fontFamily,
 		      //cursor: "pointer",
 		      //spacing: "20px", 
-		      zIndex:3, 
+		      zIndex: "3", 
 
 	          },
             })
@@ -1622,7 +892,7 @@ export default class Views {
 			0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
 			0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			fontFamily: fontFamily,
-			zIndex:3, 
+			zIndex: "3", 
 
 		},
 		properties: {
@@ -1651,7 +921,7 @@ export default class Views {
 			//0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			fontFamily: fontFamily,
 			//cursor: "pointer",
-			zIndex:3, 
+			zIndex: "3", 
 
 		},
 		properties: {
@@ -1680,7 +950,7 @@ export default class Views {
 			//0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			fontFamily: fontFamily,
 			//cursor: "pointer",
-			zIndex:3, 
+			zIndex: "3", 
 
 		},
 		properties: {
@@ -1709,7 +979,7 @@ export default class Views {
 		  fontFamily: fontFamily,
 		  //color: "#1e90ff",
 		  //cursor: "pointer",
-		  zIndex:3, 
+		  zIndex: "3", 
 		  //margin: "20px" 
 		},
 		
@@ -1736,14 +1006,14 @@ export default class Views {
 		  fontFamily: fontFamily,
 		  color: "#1e90ff",
 		  cursor: "pointer",
-		  zIndex:3, 
+		  zIndex: "3", 
 		  margin: "20px" 
 		},
 		properties: {
 		  value: "",
 		  innerHTML: "X" 
 		}
-	     }, registerWrapContainer) as HTMLDivElement
+	     }, registerWrapContainer)
 
              closeContainer.addEventListener("click", async event => {
 	         event.stopPropagation();
@@ -1770,7 +1040,7 @@ export default class Views {
                    border: "1px solid #fff",
 		   cursor: "pointer",
 		   whiteSpace: "nowrap",
-		   zIndex: 3
+		   zIndex: "3"
 	       }, 
 	       properties: {
 	           innerHTML: "Subscribe" 
@@ -1865,7 +1135,7 @@ export default class Views {
 				//color: "#1e90ff",
 				//cursor: "pointer",
 				//spacing: "20px", 
-				zIndex:3, 
+				zIndex: "3", 
 
 			},
 			properties: {
@@ -1892,7 +1162,7 @@ export default class Views {
 			  0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			  fontFamily: fontFamily,
 			  cursor: "pointer",
-			  zIndex:3, 
+			  zIndex: "3", 
 		        },
 		        properties: {
 		          value: "",
@@ -2104,33 +1374,21 @@ export default class Views {
 	  },
 	  children: [ {
           tag: "input",
-          styles: {
-            //width: "calc(100% - 1.5em)",
-            width: "calc(100% - 5em)",
-            height: "3em",
-            borderRadius: "10px",
-            border: "1px solid #d3d3d3",
-            outline: "none",
-            fontFamily: "Consolas",
-            fontSize: "1em",
-          }
+          styles: inputStyles,
+          id: "input-send-input"
 	  } ,
           {
           tag: "div",
 	  id: "send-icon-container",
 	  classList: ["send-msgs-icon"],
-          styles: {
-	    position: "relative",
-            height: "3.2em",
-            width: "3.2em",
-	    borderRadius: "10px",
-            border: "1px solid #fff",
-            whiteSpace: "nowrap",
-
-            backgroundColor: "#fff0f5", //#fff0f5
-
-            transition: "backgroundColor 1s linear 0s"
-          }
+          styles: buttonStyles
+        },
+        // 添加停止按钮
+        {
+        tag: "div",
+        id: "stop-icon-container",
+        classList: ["stop-msgs-icon"],
+        styles: stopButtonStyles
         }
 	]
 
@@ -2154,10 +1412,12 @@ export default class Views {
         }
       ]
     }, container) as HTMLDivElement
-    const inputNode = inputContainer.querySelector("input")!
+    const inputNode = inputContainer.querySelector("input")!;
+    Object.assign(inputNode.style, inputStyles);
     this.bindUpDownKeys(inputNode)
     const textareaNode = inputContainer.querySelector("textarea")!
     const sendMsgNode = inputContainer.querySelector(".send-msgs-icon")
+    const stopMsgNode = inputContainer.querySelector(".stop-msgs-icon")
 
        
     ztoolkit.UI.appendElement({
@@ -2176,6 +1436,23 @@ export default class Views {
 	    alt: ""	    
 	},
     }, sendMsgNode)
+
+    ztoolkit.UI.appendElement({
+        tag: "img",
+        id: "msg-stop-icon",
+        styles: {
+          position: "absolute",
+          top: "30%",
+          left: "30%",
+          width: "1.2em",
+          height: "1.2em",
+          justifyContent: "center"	
+        },
+        properties: {
+            src: `chrome://${config.addonRef}/content/icons/stop-circle-fill.svg`,
+            alt: "Stop"	    
+        },
+    }, stopMsgNode)
 
     sendMsgNode.addEventListener("mousedown", async event => {
         let msgNode = this.inputContainer.querySelector(".send-msgs-icon")
@@ -2368,23 +1645,7 @@ export default class Views {
 	    Zotero.Prefs.set(`${config.addonRef}.startLocalServer`, false)
 	}	
         Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Offline")
-      } else if (event.key == "/" && text == "/" && that.container.querySelector("input")?.style.display != "none") {
-        const rect = that.container.querySelector("input")!.getBoundingClientRect()
-        const commands = ["clear", "help", "report", "secretKey", "model", "api", "temperature", "chatNumber", "relatedNumber" , "deltaTime", "tagsMore", "width"]
-        that.createMenuNode(
-          { x: rect.left, y: rect.top + rect.height, width: 200, height: 350 / 12 * commands.length  },
-          commands.map(name => {
-            return {
-              name,
-              listener: () => {
-                // @ts-ignore
-                this.value = `/${name}`
-              }
-            }
-          }), [2, 6, 8]
-        )
       }
-      lastInputText = text
     }
     inputNode.addEventListener("keyup", inputListener)
     textareaNode.addEventListener("keyup", inputListener)
@@ -2577,25 +1838,41 @@ export default class Views {
       id: `tag-${index}`,
       classList: ["tag"],
       styles: {
-        display: "inline-block",
-        flexShrink: "0",
-        fontSize: "0.8em",
-        height: "1.5em",
+        ...tagStyles,
         color: `rgba(${red}, ${green}, ${blue}, 1)`,
-        backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.15)`,
-        borderRadius: "1em",
-        border: "1px solid #fff",
-        margin: ".25em",
-        padding: "0 .8em",
-        cursor: "pointer",
-        whiteSpace: "nowrap"
+        backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.1)`
+      },
+    }, container)
+    ztoolkit.UI.appendElement({
+      tag: "div",
+      classList: ["tag-name"],
+      styles: {
+        paddingLeft: "0.5em"
       },
       properties: {
-        innerHTML: tag.tag
+        innerText: tag.tag
+      }
+    }, container)
+    ztoolkit.UI.appendElement({
+      tag: "div",
+      classList: ["tag-delete"],
+      styles: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "16px",
+        height: "16px",
+        borderRadius: "50%",
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
+        cursor: "pointer",
+        transition: uiConfig.transition,
+        "&:hover": {
+          backgroundColor: "rgba(255, 255, 255, 0.3)"
+        }
       },
       listeners: [
         {
-          type: "mousedown",
+          type: "click",
           listener: (event: any) => {
             timer = window.setTimeout(() => {
               timer = undefined
@@ -2615,609 +1892,11 @@ export default class Views {
               }
             }, 1000)
           }
-        },
-        {
-          type: "mouseup",
-          listener: async () => {
-	    if (timer) {
-              window.clearTimeout(timer)
-              timer = undefined
-              this.outputContainer.querySelector(".auxiliary")?.remove()
-	      var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-	      if (tag.tag.includes("Translate") && curLanguage.length == 0) {
-		  window.alert = function(msg, parentContainer) {
-		       const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
-			      id: "languagesBg",
-                               
-			      styles: {
-                                  display: "block",
-				  flexDirection: "column",
-				  justifyContent: "flex-start",
-				  alignItems: "center",
-				  position: "fixed",
-				  //left: "0px",
-				  //top: "0px",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "18px",
-				  borderRadius: "10px",
-				  backgroundColor: "#000",
-				  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  opacity: 0.6,
-				  zIndex:2, 
-                              },
-                      })
-
-		      const allLanguagesContainer = ztoolkit.UI.createElement(document, "div", {
-			      id: "allLanguages",
-                               
-			      styles: {
-                                  display: "block",
-				  flexDirection: "column",
-				  //justifyContent: "flex-start",
-				  justifyContent: "center",
-				  alignItems: "center",
-				  position: "fixed",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "18px",
-				  borderRadius: "10px",
-				  backgroundColor: "#fff",
-				  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  //cursor: "pointer",
-				  //spacing: "20px", 
-				  zIndex:3, 
-                                  
-			      },
-                      })
-
-
-                      const languageContainer = ztoolkit.UI.appendElement({
-			      tag: "div", 
-			      id: "languages",
-                               
-			      styles: {
-                                  display: "flex",
-				  //flexDirection: "column",
-				  //justifyContent: "flex-start",
-				  justifyContent: "center",
-				  alignItems: "center",
-				  position: "fixed",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "18px",
-				  //borderRadius: "10px",
-				  //backgroundColor: "#fff",
-				  //boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  //0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  //0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  color: "red",
-				  cursor: "pointer",
-				  //spacing: "20px", 
-				  zIndex:3, 
-                                  
-			      },
-                              properties: {
-			          innerHTML: msg 
-			      }
-                      }, allLanguagesContainer) as HTMLDivElement
-
-
-
-		      const closeContainer = ztoolkit.UI.appendElement({
-		          tag: "div",
-		          id: "close",
-			  styles: {
-                                  display: "flex",
-				  flexDirection: "column",
-				  //justifyContent: "flex-start",
-				  justifyContent: "center",
-				  alignItems: "center",
-				  position: "fixed",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "15px",
-				  borderRadius: "10px",
-				  backgroundColor: "#fff",
-				  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  color: "#1e90ff",
-				  cursor: "pointer",
-				  zIndex:3, 
-			          margin: "20px" 
-			      },
-			  properties: {
-			      value: "",
-			      innerHTML: "X" 
-			  }
-	              }, allLanguagesContainer) as HTMLDivElement
-
-		      closeContainer.addEventListener("click", async event => {
-			      event.stopPropagation();
-			      
-                              backgroundContainer.style.display = "none"
-			      allLanguagesContainer.style.display = "none" 
-
-		      })
-
-
-
-
-                      const languageSelectContainer = ztoolkit.UI.appendElement({
-		          tag: "select",
-		          id: "languagesSelect",
-			  styles: {
-			      margin: "20px" 
-			  }, 
-			  properties: {
-			      value: "" 
-			  }
-	              }, languageContainer) as HTMLSelectElement//HTMLDivElement
-                      
-
-
-		      let languagesJson
-		      try {
-			      languagesJson = Zotero.Prefs.get(`${config.addonRef}.languages`) as string
-		      } catch {}
-
-		      var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-		      var languageSelectIdx = 0
-		      this.supportedLanguages = JSON.parse(languagesJson)
-		      if (this.supportedLanguages.length == 0) {
-			      const defaultLanguages = ["Arbic","Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"]
-			      for (let defaultLanguage of defaultLanguages) {
-				      this.supportedLanguages.push(defaultLanguage) 
-			      }
-		      }
-
-		      var idx = 0	
-		      for (let language of this.supportedLanguages) {
-			      if (curLanguage == language) {
-				      languageSelectIdx = idx + 1
-				      break
-			      }	   
-			      idx = idx + 1 
-		      }	
-
-		      var optionId = "languageOption0"
-		      const optionContainer = ztoolkit.UI.appendElement({
-			      tag: "option",
-			      id: optionId,
-			      properties: {
-				      innerHTML: "",
-				      value: "" 
-			      }
-		      }, languageSelectContainer) as HTMLDivElement
-
-		      for (var i = 0; i < this.supportedLanguages.length; i++) {
-			      if (this.supportedLanguages[i] == curLanguage) {
-				      languageSelectIdx = i + 1 
-			      }	
-			      var optionId = "languageOption" + (i + 1) 
-			      const optionContainer = ztoolkit.UI.appendElement({
-				      tag: "option",
-				      id: optionId,
-				      properties: {
-					      innerHTML: this.supportedLanguages[i],
-					      value: this.supportedLanguages[i]
-				      }
-			      }, languageSelectContainer) as HTMLDivElement
-		      }
-		      languageSelectContainer.selectedIndex = languageSelectIdx 
-
-		      languageSelectContainer.addEventListener("change", async event => {
-			      event.stopPropagation();
-			      curLanguage = languageSelectContainer.value
-			      Zotero.Prefs.set(`${config.addonRef}.usingLanguage`, curLanguage)
-
-			      for (var i = 0; i < this.supportedLanguages.length; i++) {
-				      if (this.supportedLanguages[i] == curLanguage) {
-					      languageSelectContainer.selectedIndex = i + 1
-					      break 
-				      }	  
-			      }
-
-                              backgroundContainer.style.display = "none"
-			      allLanguagesContainer.style.display = "none" 
-
-		      })
-
-                      document.documentElement.append(backgroundContainer)
-                      document.documentElement.append(allLanguagesContainer)
-
-		      backgroundContainer.style.display = "flex"
-		      
-		      backgroundContainer.style.height = "30%" 
-		      backgroundContainer.style.width = parentContainer.style.width 
-		      languageContainer.style.display = "flex"
-
-		      backgroundContainer.style.left = parentContainer.style.left 
-		      backgroundContainer.style.top = parentContainer.style.top 
-
-
-		      var x = -1
-		      var y = -1
-		      if (x + y < 0) {
-			      const rect = document.documentElement.getBoundingClientRect()
-			      x = rect.width / 2 - languageContainer.offsetWidth / 2;
-			      y = rect.height / 2 - languageContainer.offsetHeight / 2;
-		      }
-
-		      // ensure container doesn't go off the right side of the screen
-		      if (x + languageContainer.offsetWidth > window.innerWidth) {
-			      x = window.innerWidth - languageContainer.offsetWidth
-		      }
-
-		      // ensure container doesn't go off the bottom of the screen
-		      if (y + languageContainer.offsetHeight > window.innerHeight) {
-			      y = window.innerHeight - languageContainer.offsetHeight
-		      }
-
-		      // ensure container doesn't go off the left side of the screen
-		      if (x < 0) {
-			      x = 0
-		      }
-
-		      // ensure container doesn't go off the top of the screen
-		      if (y < 0) {
-			      y = 0
-		      }
-		      // this.container.style.display = "flex"
-		      languageContainer.style.left = `${x}px`
-		      languageContainer.style.top = `${y}px`
-		  
-		      //returnConfirmContainer.style.left = `${x + allLanguagesContainer.clientWidth/2}px`
-		      //returnConfirmContainer.style.left = `${window.innerWidth - 10}px`
-		      //returnConfirmContainer.style.top = `${y + allLanguagesContainer.clientHeight/2}px`
-		      //returnConfirmContainer.style.width = "80px" 
-		      //returnConfirmContainer.style.height = "40px" 
-
-
-		      allLanguagesContainer.style.left = `${x}px`
-		      allLanguagesContainer.style.top = `${y}px`
-		      allLanguagesContainer.style.height = "80px" 
-
-		      
-		      const percent = Number(Zotero.Prefs.get(`${config.addonRef}.width`))
-		      closeContainer.style.left = `${x}px` 
-		      closeContainer.style.top = `${y + 6}px`//allLanguagesContainer.style.top 
-		      closeContainer.style.width = "3px" 
-		      closeContainer.style.height = "5px" 
-
-		  }
-		  window.alert('Please specify language first:', this.container);
-		  
-	      } else {
-                  await this.execTag(tag)
-	      }
-            }
-          }
         }
       ]
-    }, this.tagsContainer!) as HTMLDivElement
-
-    if (tag.tag.includes("Translate")) {
-      var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-      if (curLanguage.length > 0)  {
-        ztoolkit.UI.appendElement({
-		tag: "div",
-		id: `translateLanguageConfig`,
-		styles: {
-			display: "inline-block",
-			flexShrink: "0",
-			fontSize: "0.5em",
-			height: "1.5em",
-			//color: `rgba(${red}, ${green}, ${blue}, 1)`,
-			backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.15)`,
-			borderRadius: "1em",
-			border: "1px solid #fff",
-			margin: ".15em",
-			padding: "0 .6em",
-			cursor: "pointer",
-			whiteSpace: "nowrap"
-		},
-		properties: {
-			innerHTML: "..." 
-		},
-		listeners: [
-			{
-				type: "click",
-				listener: async () => {
-					var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-					window.alert = function(msg, parentContainer) {
-						const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
-							id: "languagesBg",
-
-							styles: {
-								display: "block",
-								flexDirection: "column",
-								justifyContent: "flex-start",
-								alignItems: "center",
-								position: "fixed",
-								//left: "0px",
-								//top: "0px",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "18px",
-								borderRadius: "10px",
-								backgroundColor: "#000",
-								boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								opacity: 0.6,
-								zIndex:2, 
-							},
-						})
-
-						const allLanguagesContainer = ztoolkit.UI.createElement(document, "div", {
-							id: "allLanguages",
-
-							styles: {
-								display: "block",
-								flexDirection: "column",
-								//justifyContent: "flex-start",
-								justifyContent: "center",
-								alignItems: "center",
-								position: "fixed",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "18px",
-								borderRadius: "10px",
-								backgroundColor: "#fff",
-								boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								//cursor: "pointer",
-								//spacing: "20px", 
-								zIndex:3, 
-
-							},
-						})
-
-
-						const languageContainer = ztoolkit.UI.appendElement({
-							tag: "div", 
-							id: "languages",
-
-							styles: {
-								display: "flex",
-								//flexDirection: "column",
-								//justifyContent: "flex-start",
-								justifyContent: "center",
-								alignItems: "center",
-								position: "fixed",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "18px",
-								//borderRadius: "10px",
-								//backgroundColor: "#fff",
-								//boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								//0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								//0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								color: "red",
-								cursor: "pointer",
-								//spacing: "20px", 
-								zIndex:3, 
-
-							},
-							properties: {
-								innerHTML: msg 
-							}
-						}, allLanguagesContainer) as HTMLDivElement
-
-
-
-						const closeContainer = ztoolkit.UI.appendElement({
-							tag: "div",
-							id: "close",
-							styles: {
-								display: "flex",
-								flexDirection: "column",
-								//justifyContent: "flex-start",
-								justifyContent: "center",
-								alignItems: "center",
-								position: "fixed",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "15px",
-								borderRadius: "10px",
-								backgroundColor: "#fff",
-								boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								color: "#1e90ff",
-								cursor: "pointer",
-								zIndex:3, 
-								margin: "20px" 
-							},
-							properties: {
-								value: "",
-								innerHTML: "X" 
-							}
-						}, allLanguagesContainer) as HTMLDivElement
-
-						closeContainer.addEventListener("click", async event => {
-							event.stopPropagation();
-
-							backgroundContainer.style.display = "none"
-							allLanguagesContainer.style.display = "none" 
-
-						})
-
-
-
-						const languageSelectContainer = ztoolkit.UI.appendElement({
-							tag: "select",
-							id: "languagesSelect",
-							styles: {
-								margin: "20px" 
-							}, 
-							properties: {
-								value: "" 
-							}
-						}, languageContainer) as HTMLSelectElement//HTMLDivElement
-
-
-
-						let languagesJson
-						try {
-							languagesJson = Zotero.Prefs.get(`${config.addonRef}.languages`) as string
-						} catch {}
-
-						var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-						var languageSelectIdx = 0
-						this.supportedLanguages = JSON.parse(languagesJson)
-						if (this.supportedLanguages.length == 0) {
-							const defaultLanguages = ["Arbic","Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"]
-							for (let defaultLanguage of defaultLanguages) {
-								this.supportedLanguages.push(defaultLanguage) 
-							}
-						}
-
-						var idx = 0	
-						for (let language of this.supportedLanguages) {
-							if (curLanguage == language) {
-								languageSelectIdx = idx + 1
-								break
-							}	   
-							idx = idx + 1 
-						}	
-
-						var optionId = "languageOption0"
-						const optionContainer = ztoolkit.UI.appendElement({
-							tag: "option",
-							id: optionId,
-							properties: {
-								innerHTML: "",
-								value: "" 
-							}
-						}, languageSelectContainer) as HTMLDivElement
-
-						for (var i = 0; i < this.supportedLanguages.length; i++) {
-							if (this.supportedLanguages[i] == curLanguage) {
-								languageSelectIdx = i + 1 
-							}	
-							var optionId = "languageOption" + (i + 1) 
-							const optionContainer = ztoolkit.UI.appendElement({
-								tag: "option",
-								id: optionId,
-								properties: {
-									innerHTML: this.supportedLanguages[i],
-									value: this.supportedLanguages[i]
-								}
-							}, languageSelectContainer) as HTMLDivElement
-						}
-						languageSelectContainer.selectedIndex = languageSelectIdx 
-
-						languageSelectContainer.addEventListener("change", async event => {
-							event.stopPropagation();
-							curLanguage = languageSelectContainer.value
-							Zotero.Prefs.set(`${config.addonRef}.usingLanguage`, curLanguage)
-
-							for (var i = 0; i < this.supportedLanguages.length; i++) {
-								if (this.supportedLanguages[i] == curLanguage) {
-									languageSelectContainer.selectedIndex = i + 1
-									break 
-								}	  
-							}
-
-							backgroundContainer.style.display = "none"
-							allLanguagesContainer.style.display = "none" 
-
-						})
-
-
-						document.documentElement.append(backgroundContainer)
-						document.documentElement.append(allLanguagesContainer)
-
-						backgroundContainer.style.display = "flex"
-
-						backgroundContainer.style.height = "30%" 
-						backgroundContainer.style.width = parentContainer.style.width 
-						languageContainer.style.display = "flex"
-
-						backgroundContainer.style.left = parentContainer.style.left 
-						backgroundContainer.style.top = parentContainer.style.top 
-
-
-						var x = -1
-						var y = -1
-						if (x + y < 0) {
-							const rect = document.documentElement.getBoundingClientRect()
-							x = rect.width / 2 - languageContainer.offsetWidth / 2;
-							y = rect.height / 2 - languageContainer.offsetHeight / 2;
-						}
-
-						// ensure container doesn't go off the right side of the screen
-						if (x + languageContainer.offsetWidth > window.innerWidth) {
-							x = window.innerWidth - languageContainer.offsetWidth
-						}
-
-						// ensure container doesn't go off the bottom of the screen
-						if (y + languageContainer.offsetHeight > window.innerHeight) {
-							y = window.innerHeight - languageContainer.offsetHeight
-						}
-
-						// ensure container doesn't go off the left side of the screen
-						if (x < 0) {
-							x = 0
-						}
-
-						// ensure container doesn't go off the top of the screen
-						if (y < 0) {
-							y = 0
-						}
-						// this.container.style.display = "flex"
-						languageContainer.style.left = `${x}px`
-						languageContainer.style.top = `${y}px`
-
-						//returnConfirmContainer.style.left = `${x + allLanguagesContainer.clientWidth/2}px`
-						//returnConfirmContainer.style.left = `${window.innerWidth - 10}px`
-						//returnConfirmContainer.style.top = `${y + allLanguagesContainer.clientHeight/2}px`
-						//returnConfirmContainer.style.width = "80px" 
-						//returnConfirmContainer.style.height = "40px" 
-
-
-						allLanguagesContainer.style.left = `${x}px`
-						allLanguagesContainer.style.top = `${y}px`
-						allLanguagesContainer.style.height = "80px" 
-
-						const percent = Number(Zotero.Prefs.get(`${config.addonRef}.width`))
-						closeContainer.style.left = `${x}px` 
-						closeContainer.style.top = `${y + 6}px`//allLanguagesContainer.style.top 
-						closeContainer.style.width = "3px" 
-						closeContainer.style.height = "5px" 
-
-					}
-
-					window.alert('Change translate language:', this.container);
-				}
-			   }
-		]
-	}, this.tagsContainer!) as HTMLDivElement
-      }
-    }
-
+    }, container)
   }
 
-
-  private rippleEffect(div: HTMLDivElement, color: string) {
-    if (div == null) return 
-    let [red, green, blue] = this.utils.getRGB(color)
-    ztoolkit.UI.appendElement({
-      tag: "div",
-      styles: {
-        backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.5)`
-      },
-      classList: ["ripple"]
-    }, div)
-  }
   /**
    * execute tag 
    */
@@ -3226,7 +1905,16 @@ export default class Views {
       return 
     }
     this.isInference = true
-
+    
+    // 添加这些行来显示停止按钮并隐藏发送按钮
+    const sendMsgNode = this.inputContainer.querySelector(".send-msgs-icon") as HTMLElement;
+    const stopMsgNode = this.inputContainer.querySelector(".stop-msgs-icon") as HTMLElement;
+    
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "none";
+        stopMsgNode.style.display = "flex";
+    }
+    
     let msgNode = this.inputContainer.querySelector(".send-msgs-icon")
     let inputText = this.inputContainer.querySelector("input")?.value as string
     if (msgNode && inputText.length > 0) {
@@ -3300,13 +1988,18 @@ export default class Views {
     }
     popunWin.createLine({ text: `Characters ${text.length}`, type: "success" })
     popunWin.createLine({ text: "Answering...", type: "default" })
-    text = await Meet.integratellms.getGPTResponse(text) as string
+    // 修改后的GPT响应处理逻辑
+    const output_text = await Meet.integratellms.getGPTResponse(text) as string;
+    
+    // 更新最后一条消息内容（流式更新）
+    this.messages[this.messages.length - 1].content = output_text;
+    this.setText(output_text, true, true, false);  // isDone设为true表示最终响应
     this.dotsContainer?.classList.remove("loading")
-    if (text.trim().length) {
+    if (output_text.trim().length) {
       try {
         window.eval(`
           setTimeout(async () => {
-            ${text}
+            ${output_text}
           })
         `)
         popunWin.createLine({ text: "Code is executed", type: "success" })
@@ -3315,7 +2008,7 @@ export default class Views {
     } else {
       popunWin.createLine({ text: "Done", type: "fail" })
     }
-    popunWin.startCloseTimer(3000)
+    popunWin.startCloseTimer(1000) // 從3000毫秒減少到1000毫秒
     this.isInference = false
     
     msgNode = this.inputContainer.querySelector(".send-msgs-icon")
@@ -3324,7 +2017,11 @@ export default class Views {
         msgNode.style.backgroundColor = "#4169e1"
     }	
 
-
+    // 恢复按钮状态
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "flex";
+        stopMsgNode.style.display = "none";
+    }
   }
 
   /**
@@ -3352,8 +2049,26 @@ export default class Views {
     outputDiv.setAttribute("pureText", "");
     if (text.trim().length == 0) { return }
     this.dotsContainer?.classList.add("loading")
+    
+    // 添加这些行来显示停止按钮并隐藏发送按钮
+    const sendMsgNode = this.inputContainer.querySelector(".send-msgs-icon") as HTMLElement;
+    const stopMsgNode = this.inputContainer.querySelector(".stop-msgs-icon") as HTMLElement;
+    
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "none";
+        stopMsgNode.style.display = "flex";
+    }
+    
     await Meet.integratellms.getGPTResponse(text)
+    
+    // 恢复按钮状态
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "flex";
+        stopMsgNode.style.display = "none";
+    }
+    
     this.dotsContainer?.classList.remove("loading")
+    this.isInference = false; // 添加这行以重置推理状态
   }
 
   /**
@@ -3698,10 +2413,13 @@ export default class Views {
 
 
   public registerWindowAppearance() {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
-      this.isDarkMode = event.matches 
-      this.toggleDarkMode(event.matches);
-    }); 
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mediaQuery) {
+      mediaQuery.addEventListener('change', (event) => {
+        this.isDarkMode = event.matches 
+        this.toggleDarkMode(event.matches);
+      });
+    }
   } 
 
 
@@ -3779,146 +2497,500 @@ export default class Views {
   }
 
   public async registerInSidebar() {
-  //     zotero-tab-cover
-  // tabs-deck  <-- query this by id, find its parent and insert a box after it
-  // zotero-context-pane
-    const that = this;
+  const that = this;
 
-    this.callback()
+  this.callback()
 
-    //! 1.1 View for sidebar
-    const pluginName = "papersgpt-sidebar"; 
-    const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
-    if (papersgptNode) {
+  //! 1.1 View for sidebar
+  const pluginName = "papersgpt-sidebar"; 
+  const papersgptNode = Zotero.getMainWindow().document.querySelector("#" + pluginName)!;
+  if (papersgptNode) {
+    return;
+  }
+  const tabs_deck = Zotero.getMainWindow().document.querySelector("#zotero-context-pane")!;
+  const newNode = Zotero.getMainWindow().document.createElement("div");
+  const tabs_deck_parent = tabs_deck.parentNode;
+  tabs_deck_parent!.insertBefore(newNode, tabs_deck.nextSibling);
+  newNode.setAttribute("id", pluginName);
+  newNode.setAttribute("class", "papersgpt-sidebar");
+  newNode.setAttribute("command", "");
+  newNode.setAttribute("oncommand", "");
+  newNode.setAttribute("mousedown", "");
+  newNode.setAttribute("onmousedown", "");
+  newNode.setAttribute("zotero-persist", "width");
+  newNode.setAttribute("style", "font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; margin: 1rem; background-color: #fff; display: none;"); // 添加 display: none
+  newNode.setAttribute("zoteroFontSize", "small");
+  newNode.setAttribute("zoteroUIDensity", "comfortable");
+  newNode.setAttribute("class", "standard");
+
+  const width = Zotero.Prefs.get(`${config.addonRef}.width`)
+  newNode.style.width = '28%';
+  
+  // write 123 in the sidebar
+  const modelIconUrl = `chrome://${config.addonRef}/content/icons/gpt.png`;
+  const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+  customModels.push({
+    apimodel: "deepseek-chat",
+    apikey: "sk-c9440fac03c343fe9a30e45b36360180",
+    apiurl: "https://api.deepseek.com/v1/chat/completions",
+    displayName: "DeepSeek Chat"
+  });
+  Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
+  const hasModels = customModels && customModels.length > 0;
+
+  const modelSelectorHtml = `
+    <div id="chat-input-model-selector" class="chat-input-buttoner" style="
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;  // 调整内边距
+      margin: 0.2rem 0;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #fff;
+      width: 100%;
+      font-size: 12px;
+      height: fit-content;
+      box-sizing: border-box;">
+      <span class="model-name" style="
+        color: #444;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.2;">  // 移除文字padding
+        ${hasModels ? (customModels[0]?.displayName || customModels[0]?.apimodel) : "Add Model"}
+      </span>
+      ${hasModels ? '<span style="margin-left: auto; color: #888; font-size: 10px;">▲</span>' : ''}
+    </div>
+  `;
+
+  const inputPanelHtml = `
+<div class="input-panel">
+  <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; margin: 0.5rem 0; padding: 2px;">
+  </div>
+  <label class="chat-input-panel-inner">
+    <div style="display: flex; flex-direction: column; width: 100%; padding: 6px;">
+      <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="
+        font-size: 14px;
+        width: 100%;
+        margin-bottom: 0.3rem;  // 调整间距
+        padding: 6px;  // 减小输入框内边距
+        box-sizing: border-box;"></textarea>
+      <div style="display: flex; flex-direction: row; align-items: center; gap: 0.3rem; justify-content: flex-end; padding: 2px;">
+      ${modelSelectorHtml}
+        <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); padding: 4px 8px;">
+          <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+        </div>
+        <div id="chat-input-clearer" class="chat-input-buttoner" style="background-color:#ff4444; padding: 4px 8px;">
+          <div aria-label="Clear" class="button_icon-button-text__my76e">Clear</div>
+        </div>
+        <div id="chat-input-stopper" class="chat-input-buttoner" style="background-color:#DC3545; padding: 4px 8px; display:none;">
+          <div aria-label="Stop" class="button_icon-button-text__my76e">Stop</div>
+        </div>
+        <div id="chat-input-buttoner" class="chat-input-buttoner" style="padding: 4px 8px;">
+          <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+        </div>
+      </div>
+    </div>
+  </label>
+</div>`;
+
+  newNode.innerHTML = `<div style="display: flex; height: 100%;">
+    <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
+        <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
+        <div class="sidebar-answer" id="sidebar-answer" style="display: flex; flex-direction: column; width: 100%; height: calc(100% - 120px); overflow-y: auto; padding: 10px; box-sizing: border-box;">
+            <!-- 移除静态的欢迎消息 -->
+        </div>
+        ${inputPanelHtml}
+    </div>
+</div>`;
+
+  // 在HTML加载完成后,初始化model selector的当前值
+  const modelNameSpan = newNode.querySelector(".model-name");
+  if (modelNameSpan) {
+    // 获取当前模型配置
+    const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+    const currentModelId = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
+    
+    // 查找当前模型的配置
+    const currentModel = customModels.find((model: any) => model.apimodel === currentModelId);
+    
+    // 使用 displayName 或 fallback 到 apimodel
+    modelNameSpan.textContent = currentModel?.displayName || currentModel?.apimodel || "Add new model";
+  }
+
+  // Add resize functionality
+  const resizeHandle = newNode.querySelector('.resize-handle') as HTMLDivElement;
+  let isResizing = false;
+  let startX: number;
+  let startWidth: number;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = newNode.offsetWidth;
+
+    // Add temporary event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  });
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+
+    const dx = startX - e.clientX;
+    const newWidth = startWidth + dx;
+    
+    // Get parent width for percentage calculation
+    const parentWidth = document.documentElement.clientWidth;
+    const widthPercentage = (newWidth / parentWidth) * 100;
+
+    // If width is less than 15%, hide the sidebar
+    if (widthPercentage < 5) {
+      newNode.style.display = 'none';
+      isResizing = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
       return;
     }
-    const tabs_deck = Zotero.getMainWindow().document.querySelector("#zotero-context-pane")!;
-    const newNode = Zotero.getMainWindow().document.createElement("div");
-    const tabs_deck_parent = tabs_deck.parentNode;
-    tabs_deck_parent!.insertBefore(newNode, tabs_deck.nextSibling);
-    newNode.setAttribute("id", pluginName);
-    newNode.setAttribute("class", "papersgpt-sidebar");
-    newNode.setAttribute("command", "");
-    newNode.setAttribute("oncommand", "");
-    newNode.setAttribute("mousedown", "");
-    newNode.setAttribute("onmousedown", "");
-    // <box id="zotero-context-pane" collapsed="true" zotero-persist="width"
-    //                     style="font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; left: unset; right: 0px;"
-    //                     zoteroFontSize="small" zoteroUIDensity="comfortable" class="standard">
-    newNode.setAttribute("zotero-persist", "width");
-    newNode.setAttribute("style", "font-size: 1rem; --zotero-font-size: 1.00rem; --zotero-ui-density: comfortable; margin: 1rem; background-color: #fff;");
-    newNode.setAttribute("zoteroFontSize", "small");
-    newNode.setAttribute("zoteroUIDensity", "comfortable");
-    newNode.setAttribute("class", "standard");
 
-    const width = Zotero.Prefs.get(`${config.addonRef}.width`)
-    newNode.style.width = '28%';
+    // Limit maximum width to 50%
+    if (widthPercentage <= 50) {
+      newNode.style.width = `${widthPercentage}%`;
+    }
+  };
+
+  const handleMouseUp = () => {
+    isResizing = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
     
-    // write 123 in the sidebar
-    newNode.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%">
-                            <div class="sidebar-answer" id="sidebar-answer">
-                            Now ask your questions!
-                            </div>
-                            <div class="input-panel">
-                              <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
-                              </div>
-                              <label class="chat-input-panel-inner">
-                                <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
-                                <div style="display: flex; flex-direction: column; align-items: center;">
-                                <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
-                                  <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
-                                </div>
-                                <div id="chat-input-buttoner" class="chat-input-buttoner">
-                                  <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
-                                </div>
-                                </div>
-                              </label>
-                            </div>
-                        </div>`;
+    // Save the new width to preferences if sidebar is visible
+    if (newNode.style.display !== 'none') {
+      const width = parseFloat(newNode.style.width);
+      Zotero.Prefs.set(`${config.addonRef}.width`, `${width}%`);
+    }
+  };
 
+  // Add hover effect for resize handle
+  resizeHandle.addEventListener('mouseover', () => {
+    resizeHandle.style.backgroundColor = 'rgba(0,0,0,0.1)';
+  });
 
-    //! 1.2 Stylesheets for sidebar
-    ztoolkit.UI.appendElement({
-      tag: "style",
-      id: `${config.addonRef}-style`,
-      namespace: "html",
-      properties: {
-        innerHTML: newly_added_css}}, document.documentElement);
+  resizeHandle.addEventListener('mouseout', () => {
+    if (!isResizing) {
+      resizeHandle.style.backgroundColor = 'transparent';
+    }
+  });
 
-    //! 2. Execution of the sidebar
-    const executeSidebar = async (prompt: Prompt) => {
-      //! 2.1. mutex lock
-      if (this.isInference) {
-        return 
-      }
-      this.isInference = true
+  //! 1.2 Stylesheets for sidebar
+  ztoolkit.UI.appendElement({
+    tag: "style",
+    id: `${config.addonRef}-style`,
+    namespace: "html",
+    properties: {
+      innerHTML: newly_added_css}}, document.documentElement);
 
-      //! building the prompt
-      let original_prompt = prompt.prompt;
-      let pdf_selection = Meet.Zotero.getPDFSelection();
-
-      // fetch from chat input. if input has value, overwrite pdf_selection
-      const chat_input = document.querySelector("#chat-input") as HTMLTextAreaElement;
-      if (chat_input.value) {
-        original_prompt = chat_input.value;
-        chat_input.value = "";
-      }
-
-      let final_input_text = original_prompt;
-      Zotero.log(`PDF selection: ${pdf_selection}`);
-      if (prompt.read_selection) {
-        final_input_text = `${original_prompt}\n${pdf_selection}`;
-      } else {
-        final_input_text = `${original_prompt}`;
-      }
-
-      //! start sending requests!
-      const output_text = await Meet.integratellms.getGPTResponse(final_input_text) as string;
-
-
-      this.isInference = false
+  //! 2. Execution of the sidebar
+  const executeSidebar = async (prompt: Prompt) => {
+    //! 2.1. mutex lock
+    if (this.isInference) {
+      return 
+    }
+    this.isInference = true
+    
+    // 显示停止按钮，隐藏发送按钮
+    const sendButton = document.querySelector("#chat-input-buttoner") as HTMLElement;
+    const stopButton = document.querySelector("#chat-input-stopper") as HTMLElement;
+    if (sendButton && stopButton) {
+        sendButton.style.display = "none";
+        stopButton.style.display = "flex";
     }
     
-    //! 3 Dynamic Rendering
-    //! 3.1 Rendering the tags
-    const input_panel_prompt_list = document.querySelector("#input-panel-prompt-list") as HTMLDivElement;
-    const loaded_prompts = this.loadPromptSidebar();
-    const render_prompt = (prompt: Prompt) => {
-      // <div class="input-panel-prompt" style="margin: 0.2rem; padding: 0.2rem; border-radius: 10px; background-color: #1d93ab; color: #fff; cursor: pointer;">Chat PDF</div>
-      const promptNode = ztoolkit.UI.appendElement({tag: "div", classList: ["input-panel-prompt"], styles: {margin: "0.2rem", padding: "0.2rem", borderRadius: "10px", backgroundColor: prompt.display.color, color: "#fff", cursor: "pointer"}, properties: {innerText: prompt.name}, listeners: [{type: "click", listener: async () => { 
-        executeSidebar(prompt);
-      }}]}, input_panel_prompt_list) as HTMLDivElement;
-      input_panel_prompt_list.appendChild(promptNode);
-      return promptNode;
-    };
-    // sort the prompts by prompt.display.priority
-    loaded_prompts.sort((a, b) => a.display.priority - b.display.priority);
-    loaded_prompts.forEach(render_prompt);
+    //! building the prompt
+    let original_prompt = prompt.prompt;
+    let pdf_selection = Meet.Zotero.getPDFSelection();
 
+    // fetch from chat input. if input has value, overwrite pdf_selection
+    const chat_input = document.querySelector("#chat-input") as HTMLTextAreaElement;
+    if (chat_input.value) {
+      original_prompt = chat_input.value;
+      chat_input.value = "";
+    }
 
-    //! 3.2 Action for the sending button
-    document.querySelector("#chat-input-buttoner")?.addEventListener("mouseup", async (event) => {
-      const inputNode = document.querySelector("#chat-input") as HTMLTextAreaElement;
-      const text = inputNode.value;
-      if (text.length > 0) {
-        executeSidebar({name: "Send", prompt: text, display: {color: "#1d93ab", priority: 0}, read_selection: true, description: "Send the text to the AI model."});
-        inputNode.value = "";
-      }
+    let final_input_text = original_prompt;
+    if (prompt.read_selection) {
+      final_input_text = `${original_prompt}\n${pdf_selection}`;
+    } else {
+      final_input_text = `${original_prompt}`;
+    }
+
+    // 添加用户消息到历史并显示
+    this.messages.push({
+      role: "user", 
+      content: final_input_text
     });
-
-    //! 3.3 Action for the copy button
-    document.querySelector("#chat-input-copyer")?.addEventListener("mouseup", async (event) => {
-      const inputNode = document.querySelector("#sidebar-answer") as HTMLDivElement;
-      const text = inputNode.getAttribute("pureText") as string;
-      if (text.length > 0) {
-        await new ztoolkit.Clipboard()
-        .addText(text, "text/unicode")
-        .copy()
-      }
-    });
-
     
+    // 显示用户消息
+    this.setText(final_input_text, true, true, false);
+    
+    // 添加一个临时的助手消息（思考中）
+    const thinkingMsg = {
+      role: "assistant",
+      content: "思考中..."
+    };
+    this.messages.push(thinkingMsg);
+    this.setText(thinkingMsg.content, false, true, false);
+    
+    // 发送请求获取回复
+    const output_text = await Meet.integratellms.getGPTResponse(final_input_text) as string;
+    
+    // 更新助手消息内容
+    this.messages[this.messages.length - 1].content = output_text;
+    
+    // 只需要更新显示一次，删除重复的更新代码
+    this.setText(output_text, true, true, false);
+    
+    this.isInference = false;
+    
+    // 恢复按钮状态
+    if (sendButton && stopButton) {
+        sendButton.style.display = "flex";
+        stopButton.style.display = "none";
+    }
   }
+  
+  //! 3 Dynamic Rendering
+  //! 3.1 Rendering the tags
+  const input_panel_prompt_list = document.querySelector("#input-panel-prompt-list") as HTMLDivElement;
+  const loaded_prompts = this.loadPromptSidebar();
+  const render_prompt = (prompt: Prompt) => {
+    // <div class="input-panel-prompt" style="margin: 0.2rem; padding: 0.2rem; border-radius: 10px; background-color: #1d93ab; color: #fff; cursor: pointer;">Chat PDF</div>
+    const promptNode = ztoolkit.UI.appendElement({tag: "div", classList: ["input-panel-prompt"], styles: {margin: "0.2rem", padding: "0.2rem", borderRadius: "10px", backgroundColor: prompt.display.color, color: "#fff", cursor: "pointer"}, properties: {innerText: prompt.name}, listeners: [{type: "click", listener: async () => { 
+      executeSidebar(prompt);
+    }}]}, input_panel_prompt_list) as HTMLDivElement;
+    input_panel_prompt_list.appendChild(promptNode);
+    return promptNode;
+  };
+  // sort the prompts by prompt.display.priority
+  loaded_prompts.sort((a, b) => a.display.priority - b.display.priority);
+  loaded_prompts.forEach(render_prompt);
+
+
+  //! 3.2 Action for the sending button and input handling
+  const chatInput = document.querySelector("#chat-input") as HTMLTextAreaElement;
+  
+  // Add keydown event listener for enter/shift+enter
+  chatInput?.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter") {
+      // Shift + Enter for new line
+      if (event.shiftKey) {
+        return; // Default behavior - insert newline
+      }
+      
+      // Enter to send
+      event.preventDefault();
+      const text = chatInput.value.trim();
+      if (text.length > 0) {
+        await executeSidebar({
+          name: "Send", 
+          prompt: text, 
+          display: {
+            color: "#1d93ab", 
+            priority: 0
+          }, 
+          read_selection: true, 
+          description: "Send the text to the AI model."
+        });
+        chatInput.value = "";
+      }
+    }
+  });
+
+  // Keep existing click handler as fallback
+  document.querySelector("#chat-input-buttoner")?.addEventListener("mouseup", async (event) => {
+    const text = chatInput.value.trim();
+    if (text.length > 0) {
+      await executeSidebar({
+        name: "Send",
+        prompt: text,
+        display: {color: "#1d93ab", priority: 0},
+        read_selection: true,
+        description: "Send the text to the AI model."
+      });
+      chatInput.value = "";
+    }
+  });
+
+  //! 3.2.1 Action for the model selector button
+  const modelSelector = newNode.querySelector("#chat-input-model-selector");
+  modelSelector?.addEventListener("mouseup", async (event) => {
+    const that = this;
+    const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+    
+    // 如果没有模型，直接显示添加模型对话框
+    if (!customModels || customModels.length === 0) {
+      this.showNewModelDialog();
+      return;
+    }
+
+    // 有模型时显示下拉菜单
+    const rect = modelSelector.getBoundingClientRect();
+    const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
+    Zotero.log(`Available models: ${JSON.stringify(customModels)}`);
+
+    // 修改菜单项映射，使用 displayName 作为显示名称
+    const items = customModels.map((e: any) => ({
+      name: e.displayName || e.apimodel, // 优先使用 displayName 作为显示名称
+      apimodel: e.apimodel, // 保留实际的模型名称用于API调用
+      isSelected: currentModel === e.apimodel,
+      listener: async () => {
+        try {
+          // 使用 apimodel 而不是 displayName 进行设置
+          Zotero.Prefs.set(`${config.addonRef}.usingModel`, e.apimodel);
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, e.apiurl);
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, e.apikey);
+
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const newModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`);
+          Zotero.log(`${config.addonRef}.usingModel: ${newModel}`);
+          
+          // 更新显示名称
+          const modelNameSpan = modelSelector.querySelector(".model-name");
+          if (modelNameSpan) {
+            modelNameSpan.textContent = e.displayName || e.apimodel;
+          }
+
+          if (!that.publisher2models.has(e.apimodel)) {
+            const modelConfig: ModelConfig = {
+              models: [e.apimodel],
+              hasApiKey: true,
+              apiKey: e.apikey,
+              areModelsReady: new Map([[e.apimodel, true]]),
+              defaultModelIdx: 0,
+              apiUrl: e.apiurl,
+              displayName: e.displayName // 添加显示名称到配置中
+            };
+            that.publisher2models.set(e.apimodel, modelConfig);
+          } else {
+            const modelConfig = that.publisher2models.get(e.apimodel);
+            if (modelConfig) {
+              modelConfig.apiKey = e.apikey;
+              modelConfig.apiUrl = e.apiurl;
+              modelConfig.defaultModelIdx = 0;
+              modelConfig.displayName = e.displayName; // 更新显示名称
+            }
+          }
+          
+          Meet.Global.resetModelConfig && Meet.Global.resetModelConfig();
+          that.createOrUpdateModelsContainer();
+          
+          Zotero.log("Model switch completed, configuration updated");
+        } catch (error) {
+          Zotero.log(`Error switching model: ${error}`);
+        }
+      }
+    }));
+
+    // 显示下拉菜单
+    this.showModelMenu(items, rect);
+  });
+
+  //! 3.3 Action for the copy button
+  document.querySelector("#chat-input-copyer")?.addEventListener("mouseup", async (event) => {
+    const inputNode = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    const text = inputNode.getAttribute("pureText") as string;
+    if (text.length > 0) {
+      await new ztoolkit.Clipboard()
+      .addText(text, "text/unicode")
+      .copy()
+    }
+  });
+
+  // 添加清空按钮事件监听
+  document.querySelector("#chat-input-clearer")?.addEventListener("mouseup", async (event) => {
+    // 使用 window.confirm 替代 confirm
+    if (window.confirm("确定要清空所有聊天历史记录吗？")) {
+        this.clearChatHistory();
+    }
+  });
+
+  // 添加滑动浏览历史记录功能
+  const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+  if (answerDiv) {
+    this.updateWelcomeMessage();
+    // 记录上一次滚动位置和方向
+    let lastScrollTop = 0;
+    let scrollingUp = false;
+    
+    // 添加鼠标滚轮事件监听
+    answerDiv.addEventListener('wheel', (event) => {
+      // 当按住Ctrl键时，触发历史记录浏览
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        
+        // 确定滚动方向
+        scrollingUp = event.deltaY < 0;
+        
+        // 如果没有聊天历史，提示用户
+        if (this.messages.length === 0) {
+          const notification = document.createElement('div');
+          notification.textContent = '没有聊天历史记录';
+          notification.style.padding = '10px';
+          notification.style.backgroundColor = '#f0f0f0';
+          notification.style.borderRadius = '4px';
+          notification.style.textAlign = 'center';
+          notification.style.margin = '10px 0';
+          
+          answerDiv.appendChild(notification);
+          
+          setTimeout(() => {
+            notification.remove();
+          }, 2000);
+          
+          return;
+        }
+        
+        // 调用历史记录浏览方法
+        this.scrollChatHistory(scrollingUp ? 'up' : 'down');
+      }
+    });
+    
+    // 添加触摸手势支持（针对触摸屏和触控板）
+    let touchStartY = 0;
+    
+    answerDiv.addEventListener('touchstart', (event) => {
+      if (event.touches.length === 2) { // 双指触摸
+        touchStartY = event.touches[0].clientY;
+      }
+    }, { passive: false });
+    
+    answerDiv.addEventListener('touchmove', (event) => {
+      if (event.touches.length === 2) { // 双指触摸
+        event.preventDefault();
+        
+        const touchY = event.touches[0].clientY;
+        const deltaY = touchY - touchStartY;
+        
+        // 如果移动距离足够大，触发历史记录浏览
+        if (Math.abs(deltaY) > 30) {
+          scrollingUp = deltaY > 0;
+          this.scrollChatHistory(scrollingUp ? 'up' : 'down');
+          touchStartY = touchY; // 重置起始位置
+        }
+      }
+    }, { passive: false });
+  }
+
+  // 在侧边栏中添加停止按钮的事件监听器
+  document.querySelector("#chat-input-stopper")?.addEventListener("mouseup", async (event) => {
+      if (this.isInference) {
+          this.stopGeneration();
+      }
+  });
+
+}
 
 
   public async registerInMenupopup() {
@@ -4000,75 +3072,92 @@ export default class Views {
   }
 
   private async callback() {
-    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Starting")
-    this.publisher2models.clear()
-    this.publishers = []
+    this.publisher2models.clear();
+    this.publishers = [];
 
-    this.isInNote = false
-    const defaultModelApiKey = Zotero.Prefs.get(`${config.addonRef}.openaiApiKey`)
-    let modelConfig: ModelConfig = {
-      models: ["gpt-3.5-turbo", "gpt-4"],
-      hasApiKey: true,
-      apiKey: defaultModelApiKey,
-      areModelsReady: new Map(),
-      defaultModelIdx: 0,
-      apiUrl: "https://api.openai.com/v1/chat/completions"
-    }
+    // 加载自定义模型配置
+    const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+    const hasModels = customModels && customModels.length > 0;
+    
+    // 检查是否已有模型，避免重复添加
+    const existingModels = customModels.map((model: any) => model.apimodel);
+    
+    // 保存更新后的模型列表
+    Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
+    
+    // 遍历所有模型配置并添加到系统中
+    customModels.forEach((config: any) => {
+      const modelConfig: ModelConfig = {
+        models: [config.apimodel],
+        hasApiKey: true,
+        apiKey: config.apikey,
+        areModelsReady: new Map([[config.apimodel, true]]),
+        defaultModelIdx: 0,
+        apiUrl: config.apiurl,
+        displayName: config.displayName // 添加显示名称
+      };
+      this.publisher2models.set(config.apimodel, modelConfig);
+      this.publishers.push(config.apimodel);
+    });
 
-    //! [c7w] Disable the following code for now
-    // this.publisher2models.set("OpenAI", modelConfig)
-    // this.publishers.push("OpenAI")
-
-    //Zotero.Prefs.set(`${config.addonRef}.usingPublisher`, "OpenAI")
-    //Zotero.Prefs.set(`${config.addonRef}.usingModel`, "gpt-3.5-turbo")
-    //Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, "https://api.openai.com/v1/chat/completions")
-    //Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, defaultModelApiKey)
-
-    var email = Zotero.Prefs.get(`${config.addonRef}.email`) 
-    var token =  Zotero.Prefs.get(`${config.addonRef}.token`) 
-
-    await Zotero[config.addonInstance].views.updatePublisherModels(email, token)
-    Zotero[config.addonInstance].views.createOrUpdateModelsContainer()
-
+    // 只有在有模型时才设置当前使用的模型
+    if (customModels.length > 0) {
+      const firstConfig = customModels[0];
       
-    if (Zotero_Tabs.selectedIndex == 0) {
-      const div = document.querySelector("#item-tree-main-default .row.selected")!
-      if (div) {
-        const rect = div.getBoundingClientRect()
-        this.show(rect.x, rect.y + rect.height)
-      } else {
-        this.show()
+      // 设置模型配置
+      Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstConfig.apimodel);
+      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstConfig.apiurl);
+      Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstConfig.apikey);
+      
+      // 更新界面上的模型名称显示 - 使用 displayName
+      const modelNameSpan = document.querySelector(".model-name");
+      if (modelNameSpan) {
+        // 确保使用 displayName
+        modelNameSpan.textContent = firstConfig.displayName || 'nonono'
       }
-    } else {
-      const reader = await ztoolkit.Reader.getReader()
-      
-      const div = reader?._iframeWindow?.document.querySelector(".selection-popup")!
-      if (div) {
-        window.setTimeout(() => {
-          this.messages = this.messages.concat(
-            [
-              {
-                role: "user",
-                content: `I am reading a PDF, and the following text is a part of the PDF. Please read it first, and I will ask you some question later: \n${Meet.Zotero.getPDFSelection()}`
-              },
-              {
-                role: "assistant",
-                content: "OK."
-              }
-            ]
-          )
-          const rect = div?.getBoundingClientRect()
-          const windRect = document.documentElement.getBoundingClientRect()
-          const ww = windRect.width *
-            0.01 * Number((Zotero.Prefs.get(`${config.addonRef}.width`) as string).slice(0, -1))
-          ww
-          this.show(rect.left + rect.width * .5 - ww * .5, rect.bottom)
-        }, 233)
-      } else {
-        this.show()
+
+      // 更新侧边栏的模型名称显示
+      const sidebarModelName = document.querySelector("#chat-input-model-selector .model-name");
+      if (sidebarModelName) {
+        sidebarModelName.textContent = firstConfig.displayName || firstConfig.apimodel;
       }
     }
-    Zotero.Prefs.set(`${config.addonRef}.papersgptState`, "Online")
+    
+    // 添加调试日志
+    Zotero.log(`Added ${customModels.length} model configurations`);
+    Zotero.log(`Current model in use: ${customModels[0]?.displayName || customModels[0]?.apimodel}`);
+
+    // 更新下拉箭头的显示状态
+    const modelSelector = document.querySelector("#chat-input-model-selector");
+    if (modelSelector) {
+      // 先移除现有的箭头（如果存在）
+      const existingArrow = modelSelector.querySelector("span:last-child");
+      if (existingArrow && existingArrow !== modelSelector.querySelector(".model-name")) {
+        existingArrow.remove();
+      }
+
+      // 如果有模型，添加箭头
+      if (hasModels) {
+        const arrow = document.createElement("span");
+        Object.assign(arrow.style, {
+          marginLeft: "auto", 
+          color: "#888"
+        });
+        arrow.textContent = "▲";
+        modelSelector.appendChild(arrow);
+      }
+    }
+
+    // 更新模型名称显示
+    const modelNameSpan = document.querySelector(".model-name");
+    if (modelNameSpan) {
+      if (hasModels) {
+        const firstConfig = customModels[0];
+        modelNameSpan.textContent = firstConfig.displayName || firstConfig.apimodel;
+      } else {
+        modelNameSpan.textContent = "Add New Model";
+      }
+    }
   }
 
 
@@ -4185,7 +3274,7 @@ export default class Views {
             event.originalTarget.isContentEditable ||
             "value" in event.originalTarget
           ) {
-            return;
+            return
           }
           
         }
@@ -4193,5 +3282,596 @@ export default class Views {
       true
     );
   }
+
+  private showModelMenu(items: any[], rect: DOMRect) {
+    const doc = Zotero.getMainWindow().document;
+    
+    // 移除可能存在的旧菜单
+    const existingMenu = doc.querySelector(".model-menu-wrapper");
+    if (existingMenu) {
+      existingMenu.remove();
+    }
+    
+    // 创建菜单容器
+    const menuWrapper = doc.createElement("div") as HTMLDivElement;
+    menuWrapper.className = "model-menu-wrapper";
+
+    // 计算每个菜单项的高度和总高度
+    const itemHeight = 40; // 每个菜单项的高度
+    const menuHeight = ((items?.length || 0) + 1) * itemHeight; // +1 是为添加新模型选项
+    
+    // 始终将菜单定位在按钮上方
+    Object.assign(menuWrapper.style, {
+      position: "fixed",
+      left: `${rect.left}px`,
+      bottom: `${window.innerHeight - rect.top + 4}px`, // 定位到按钮上方
+      width: `${rect.width}px`,
+      maxHeight: `${Math.min(menuHeight, window.innerHeight * 0.8)}px`, // 限制最大高度
+      backgroundColor: "#ffffff",
+      border: "1px solid #e0e0e0",
+      borderRadius: "4px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+      zIndex: "9999",
+      overflowY: "auto" // 如果内容过多则显示滚动条
+    });
+
+    // 如果有现有模型，添加模型列表
+    if (items && items.length > 0) {
+      // 添加现有模型列表
+      items.forEach(item => {
+        const itemNode = doc.createElement("div") as HTMLDivElement;
+        Object.assign(itemNode.style, {
+          padding: "8px 12px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
+          color: item.isSelected ? "#1d93ab" : "#444",
+          transition: "background-color 0.2s",
+          fontSize: "13px",
+          borderBottom: "1px solid #f0f0f0"
+        });
+        
+        // 修改菜单项的 HTML 结构，添加删除按钮
+        itemNode.innerHTML = `
+          <span style="flex-grow: 1;">${item.name}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${item.isSelected ? '<span style="color: #1d93ab;">✓</span>' : ''}
+            <span class="delete-btn" style="color: #ff4444; padding: 0 4px; opacity: 0; transition: opacity 0.2s;">✕</span>
+          </div>
+        `;
+
+        // 鼠标悬停效果
+        itemNode.addEventListener("mouseenter", () => {
+          itemNode.style.backgroundColor = "#f5f5f5";
+          const deleteBtn = itemNode.querySelector(".delete-btn") as HTMLElement;
+          if (deleteBtn) {
+            deleteBtn.style.opacity = "1";
+          }
+        });
+
+        itemNode.addEventListener("mouseleave", () => {
+          itemNode.style.backgroundColor = item.isSelected ? "#f0f0f0" : "#ffffff";
+          const deleteBtn = itemNode.querySelector(".delete-btn") as HTMLElement;
+          if (deleteBtn) {
+            deleteBtn.style.opacity = "0";
+          }
+        });
+
+        // 点击事件处理
+        itemNode.addEventListener("click", async (e) => {
+          const target = e.target as HTMLElement;
+          // 如果点击的是删除按钮
+          if (target.classList.contains("delete-btn")) {
+            e.stopPropagation(); // 阻止冒泡，避免触发选择事件
+
+            // 获取当前模型配置
+            const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+            
+            // 从配置中移除该模型
+            const updatedModels = customModels.filter((model: any) => model.apimodel !== item.apimodel);
+            
+            // 保存更新后的配置
+            Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(updatedModels));
+
+            // 如果删除的是当前选中的模型，则重置当前模型
+            if (item.isSelected) {
+              const firstModel = updatedModels[0];
+              if (firstModel) {
+                Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstModel.apimodel);
+                Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstModel.apiurl);
+                Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstModel.apikey);
+              } else {
+                // 如果没有其他模型了，清空当前模型设置
+                Zotero.Prefs.clear(`${config.addonRef}.usingModel`);
+                Zotero.Prefs.clear(`${config.addonRef}.usingAPIURL`);
+                Zotero.Prefs.clear(`${config.addonRef}.usingAPIKEY`);
+              }
+            }
+
+            // 更新界面
+            this.callback();
+            menuWrapper.remove();
+
+            // 显示删除成功消息
+            new ztoolkit.ProgressWindow("Remove Model")
+              .createLine({ text: "Model configuration has been removed", type: "success" })
+              .show();
+
+            return;
+          }
+
+          // 常规点击处理（选择模型）
+          try {
+            await item.listener();
+          } catch (error) {
+            Zotero.log(`Error in model selection: ${error}`);
+          }
+          menuWrapper.remove();
+        });
+
+        menuWrapper.appendChild(itemNode);
+      });
+
+      // 添加分隔线
+      const separator = doc.createElement("div") as HTMLDivElement;
+      Object.assign(separator.style, {
+        height: "1px",
+        margin: "8px 0",
+        backgroundColor: "#e0e0e0"
+      });
+      menuWrapper.appendChild(separator);
+    }
+
+    // 添加"新建模型"选项
+    const newModelItem = doc.createElement("div") as HTMLDivElement;
+    Object.assign(newModelItem.style, {
+      padding: "8px 12px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      backgroundColor: "#ffffff",
+      color: "#1d93ab",
+      transition: "background-color 0.2s",
+      fontSize: "13px"
+    });
+    
+    newModelItem.innerHTML = `
+      <span style="flex-grow: 1;">➕ ${items?.length ? 'Add New Model' : 'Add Your First Model'}</span>  
+    `;
+
+    newModelItem.addEventListener("mouseenter", () => {
+      newModelItem.style.backgroundColor = "#f5f5f5";
+    });
+
+    newModelItem.addEventListener("mouseleave", () => {
+      newModelItem.style.backgroundColor = "#ffffff";
+    });
+
+    newModelItem.addEventListener("click", () => {
+      this.showNewModelDialog();
+      menuWrapper.remove();
+    });
+
+    menuWrapper.appendChild(newModelItem);
+
+    // 添加到文档中
+    doc.documentElement.appendChild(menuWrapper);
+
+    // 处理点击外部关闭菜单
+    const closeMenu = (e: MouseEvent) => {
+      if (!menuWrapper.contains(e.target as Node)) {
+        menuWrapper.remove();
+        doc.removeEventListener("click", closeMenu);
+      }
+    };
+
+    // 延迟添加事件监听器
+    setTimeout(() => {
+      doc.addEventListener("click", closeMenu);
+    }, 100);
+}
+
+private showNewModelDialog() {
+    const doc = Zotero.getMainWindow().document;
+    
+    // 创建背景遮罩
+    const overlay = doc.createElement("div") as HTMLDivElement;
+    Object.assign(overlay.style, {
+      position: "fixed",
+      left: "0",
+      top: "0",
+      width: "100%",
+      height: "100%",
+      backgroundColor: "rgba(0,0,0,0.5)",
+      zIndex: "9999"
+    });
+
+    // 创建对话框容器
+    const dialogWrapper = doc.createElement("div") as HTMLDivElement;
+    Object.assign(dialogWrapper.style, {
+      position: "fixed",
+      left: "50%",
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      backgroundColor: "#ffffff",
+      padding: "20px",
+      borderRadius: "8px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+      zIndex: "10000",
+      width: "400px"
+    });
+
+    // 使用 createElement 而不是 innerHTML 来创建元素
+    const header = doc.createElement("div");
+    Object.assign(header.style, {
+      marginBottom: "20px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    });
+
+    const title = doc.createElement("h3");
+    title.textContent = "Add New Model Configuration";  // 改为英文
+    Object.assign(title.style, {
+      margin: "0",
+      color: "#333"
+    });
+
+    const closeBtn = doc.createElement("div");
+    closeBtn.id = "dialog-close";
+    closeBtn.textContent = "✕";
+    Object.assign(closeBtn.style, {
+      cursor: "pointer",
+      padding: "4px 8px"
+    });
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    dialogWrapper.appendChild(header);
+
+    // 创建表单字段
+    const fields = [
+      { id: "model-display-name", label: "Display Name", placeholder: "e.g. My GPT Model", type: "text" },
+      { id: "model-name", label: "Model Name", placeholder: "e.g. gpt-4", type: "text" },
+      { id: "model-url", label: "API URL", placeholder: "e.g. https://api.openai.com/v1/chat/completions", type: "text" },
+      { id: "model-key", label: "API Key", placeholder: "Enter API Key", type: "password" }
+    ];
+
+    fields.forEach(field => {
+      const container = doc.createElement("div");
+      Object.assign(container.style, {
+        marginBottom: "15px"
+      });
+
+      const label = doc.createElement("label");
+      label.textContent = field.label;
+      Object.assign(label.style, {
+        display: "block",
+        marginBottom: "5px",
+        color: "#666"
+      });
+
+      const input = doc.createElement("input");
+      input.id = field.id;
+      input.type = field.type;
+      input.placeholder = field.placeholder;
+      Object.assign(input.style, {
+        width: "100%",
+        padding: "8px",
+        border: "1px solid #ddd",
+        borderRadius: "4px",
+        boxSizing: "border-box"
+      });
+
+      container.appendChild(label);
+      container.appendChild(input);
+      dialogWrapper.appendChild(container);
+    });
+
+    // 创建错误消息容器
+    const errorMessage = doc.createElement("div");
+    errorMessage.id = "error-message";
+    Object.assign(errorMessage.style, {
+      color: "#ff4444",
+      marginBottom: "15px",
+      display: "none"
+    });
+    dialogWrapper.appendChild(errorMessage);
+
+    // 创建按钮容器
+    const buttonContainer = doc.createElement("div");
+    Object.assign(buttonContainer.style, {
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: "10px"
+    });
+
+    const cancelBtn = doc.createElement("button");
+    cancelBtn.id = "cancel-btn";
+    cancelBtn.textContent = "Cancel";  // 改为英文
+    Object.assign(cancelBtn.style, {
+      padding: "8px 16px",
+      border: "1px solid #ddd",
+      borderRadius: "4px",
+      background: "#fff",
+      cursor: "pointer"
+    });
+
+    const saveBtn = doc.createElement("button");
+    saveBtn.id = "save-btn";
+    saveBtn.textContent = "Save";  // 改为英文
+    Object.assign(saveBtn.style, {
+      padding: "8px 16px",
+      border: "none",
+      borderRadius: "4px",
+      background: "#1d93ab",
+      color: "#fff",
+      cursor: "pointer"
+    });
+
+    buttonContainer.appendChild(cancelBtn);
+    buttonContainer.appendChild(saveBtn);
+    dialogWrapper.appendChild(buttonContainer);
+
+    // 添加事件监听器
+    const closeDialog = () => {
+      overlay.remove();
+      dialogWrapper.remove();
+    };
+
+    const showError = (message: string) => {
+      errorMessage.textContent = message;
+      errorMessage.style.display = "block";
+      setTimeout(() => {
+        errorMessage.style.display = "none";
+      }, 3000);
+    };
+
+    const saveNewModel = () => {
+      const displayName = (doc.getElementById("model-display-name") as HTMLInputElement).value.trim();
+      const modelName = (doc.getElementById("model-name") as HTMLInputElement).value.trim();
+      const apiUrl = (doc.getElementById("model-url") as HTMLInputElement).value.trim();
+      const apiKey = (doc.getElementById("model-key") as HTMLInputElement).value.trim();
+
+      if (!displayName || !modelName || !apiUrl || !apiKey) {
+        showError("All fields are required");  // 改为英文
+        return;
+      }
+
+      try {
+        // 获取现有模型配置
+        const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+        
+        // 检查是否已存在相同的模型名称
+        if (customModels.some((model: any) => model.apimodel === modelName)) {
+          showError("Model name already exists");  // 改为英文
+          return;
+        }
+
+        // 添加新模型
+        customModels.push({
+          apimodel: modelName,
+          displayName: displayName,
+          apiurl: apiUrl,
+          apikey: apiKey
+        });
+
+        // 保存更新后的配置
+        Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
+
+        // 更新模型列表
+        this.callback();
+        
+        // 关闭对话框
+        closeDialog();
+        
+        // 显示成功消息
+        new ztoolkit.ProgressWindow("Add Model", { closeTime: 1500 })  // 添加closeTime參數
+          .createLine({ text: "New model configuration has been added", type: "success" })  // 改为英文
+          .show();
+
+      } catch (error) {
+        showError(`Error adding new model configuration: ${error}`);  // 改为英文
+      }
+    };
+
+    // 绑定事件监听器
+    closeBtn.addEventListener("click", closeDialog);
+    cancelBtn.addEventListener("click", closeDialog);
+    saveBtn.addEventListener("click", saveNewModel);
+    overlay.addEventListener("click", closeDialog);
+
+    // 阻止点击对话框时关闭
+    dialogWrapper.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    // 添加到文档中
+    doc.documentElement.appendChild(overlay);
+    doc.documentElement.appendChild(dialogWrapper);
+
+    // 聚焦第一个输入框
+    (doc.getElementById("model-display-name") as HTMLInputElement).focus();
+}
+
+/**
+ * 滑动浏览聊天历史记录
+ * @param direction 'up' 向上滑动获取更旧的记录，'down' 向下滑动获取更新的记录
+ */
+public scrollChatHistory(direction: 'up' | 'down') {
+  const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+  const chatHistoryContainer = document.createElement('div');
+  chatHistoryContainer.className = 'chat-history-container';
+  chatHistoryContainer.style.maxHeight = '400px';
+  chatHistoryContainer.style.overflowY = 'auto';
+  chatHistoryContainer.style.border = '1px solid #e0e0e0';
+  chatHistoryContainer.style.borderRadius = '4px';
+  chatHistoryContainer.style.padding = '10px';
+  chatHistoryContainer.style.margin = '10px 0';
+  
+  // 为每条消息创建显示元素
+  this.messages.forEach((msg, index) => {
+    const msgElement = document.createElement('div');
+    msgElement.className = `message ${msg.role}`;
+    msgElement.style.marginBottom = '10px';
+    msgElement.style.padding = '8px';
+    msgElement.style.borderRadius = '4px';
+    msgElement.style.maxWidth = '80%';
+    
+    if (msg.role === 'user') {
+      msgElement.style.marginLeft = 'auto';
+      msgElement.style.backgroundColor = '#e6f7ff';
+    } else {
+      msgElement.style.backgroundColor = '#f5f5f5';
+    }
+    
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'role-label';
+    roleLabel.textContent = msg.role === 'user' ? '用户' : '助手';
+    roleLabel.style.fontWeight = 'bold';
+    roleLabel.style.marginBottom = '4px';
+    
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    content.textContent = msg.content;
+    
+    msgElement.appendChild(roleLabel);
+    msgElement.appendChild(content);
+    chatHistoryContainer.appendChild(msgElement);
+  });
+  
+  const closeButton = document.createElement('button');
+  closeButton.textContent = '关闭历史记录';
+  closeButton.style.marginTop = '10px';
+  closeButton.style.padding = '5px 10px';
+  closeButton.style.borderRadius = '4px';
+  closeButton.style.border = 'none';
+  closeButton.style.backgroundColor = '#1d93ab';
+  closeButton.style.color = 'white';
+  closeButton.style.cursor = 'pointer';
+  
+  closeButton.addEventListener('click', () => {
+    chatHistoryContainer.remove();
+    closeButton.remove();
+  });
+  
+  // 保存当前内容
+  const currentContent = answerDiv.innerHTML;
+  const currentPureText = answerDiv.getAttribute("pureText") || "";
+  
+  // 清空并显示历史记录
+  answerDiv.innerHTML = '';
+  answerDiv.appendChild(chatHistoryContainer);
+  answerDiv.appendChild(closeButton);
+  
+  // 滚动到底部或顶部
+  if (direction === 'down') {
+    chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+  } else {
+    chatHistoryContainer.scrollTop = 0;
+  }
+  
+  // 添加返回按钮
+  const backButton = document.createElement('button');
+  backButton.textContent = '返回当前对话';
+  backButton.style.marginTop = '10px';
+  backButton.style.marginRight = '10px';
+  backButton.style.padding = '5px 10px';
+  backButton.style.borderRadius = '4px';
+  backButton.style.border = 'none';
+  backButton.style.backgroundColor = '#4169e1';
+  backButton.style.color = 'white';
+  backButton.style.cursor = 'pointer';
+  
+  backButton.addEventListener('click', () => {
+    answerDiv.innerHTML = currentContent;
+    answerDiv.setAttribute("pureText", currentPureText);
+  });
+  
+  answerDiv.insertBefore(backButton, closeButton);
+}
+
+/**
+ * 清空聊天历史记录
+ */
+public clearChatHistory() {
+    this.messages = [];
+    const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    answerDiv.innerHTML = "";
+    this.updateWelcomeMessage();
+    new ztoolkit.ProgressWindow(config.addonName, { closeTime: 1000 }) // 添加closeTime參數
+        .createLine({ text: "聊天歷史記錄已清空", type: "success" })
+        .show();
+}
+
+// 在class Views中添加新的方法
+private updateWelcomeMessage() {
+    const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    const welcomeMsg = answerDiv.querySelector(".welcome-message") as HTMLDivElement;
+    
+    // 当没有消息时显示欢迎语
+    if (this.messages.length === 0) {
+        if (!welcomeMsg) {
+            const welcome = document.createElement('div');
+            welcome.className = 'welcome-message';
+            Object.assign(welcome.style, {
+                fontSize: "12px",
+                textAlign: "center",
+                color: "#888",
+                margin: "10px 0"
+            });
+            welcome.textContent = "Start chatting about your papers! Powered by Daucloud.";
+            answerDiv.prepend(welcome);
+        }
+    } else {
+        // 有消息时移除欢迎语
+        welcomeMsg?.remove();
+    }
+}
+
+// 添加stopGeneration方法到Views类
+public stopGeneration() {
+    if (!this.isInference) return;
+    
+    // 停止所有输出
+    this.stopAlloutput();
+    
+    // 重置UI状态
+    this.isInference = false;
+    this.dotsContainer?.classList.remove("loading");
+    
+    // 添加检查避免空引用错误
+    if (this.inputContainer) {
+        // 切换按钮显示
+        const sendMsgNode = this.inputContainer.querySelector(".send-msgs-icon") as HTMLElement;
+        const stopMsgNode = this.inputContainer.querySelector(".stop-msgs-icon") as HTMLElement;
+        
+        if (sendMsgNode && stopMsgNode) {
+            sendMsgNode.style.display = "flex";
+            stopMsgNode.style.display = "none";
+        }
+    } else {
+        // 侧边栏的停止按钮处理
+        const sendButton = document.querySelector("#chat-input-buttoner") as HTMLElement;
+        const stopButton = document.querySelector("#chat-input-stopper") as HTMLElement;
+        if (sendButton && stopButton) {
+            sendButton.style.display = "flex";
+            stopButton.style.display = "none";
+        }
+    }
+    
+    // 在当前输出末尾添加提示
+    const lastOutput = this.messages[this.messages.length - 1];
+    if (lastOutput && lastOutput.role === "assistant") {
+        lastOutput.content += "\n\n[输出已中断]";
+        this.setText(lastOutput.content, true, true, false);
+    }
+    
+    // 显示提示消息
+    new ztoolkit.ProgressWindow("停止生成", { closeTime: 1000 })
+        .createLine({ text: "已停止模型輸出", type: "default" })
+        .show();
+}
 }
 

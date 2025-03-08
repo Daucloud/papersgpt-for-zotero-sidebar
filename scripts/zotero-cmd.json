@@ -3,7 +3,7 @@
   "killZoteroWindows": "taskkill /f /im zotero.exe",
   "killZoteroUnix": "kill -9 $(ps -x | grep zotero)",
   "exec": {
-    "6": "/path/to/zotero6.exe",
-    "7": "/home/c7w/projects/downloads/Zotero_linux-x86_64/zotero"
+    "6": "/Applications/Zotero.app/Contents/MacOS/zotero",
+    "7": "/Applications/Zotero.app/Contents/MacOS/zotero"
   }
 }
