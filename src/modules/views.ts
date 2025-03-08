@@ -25,6 +25,112 @@ export function sleep(time: number) {
     return new Promise((resolve) => window.setTimeout(resolve, time));
 }
 
+// Add CSS variables at the top of the file
+const uiConfig = {
+  primaryColor: "#59C0BC",
+  secondaryColor: "#6C757D",
+  successColor: "#28A745",
+  dangerColor: "#DC3545",
+  textColor: "#212529",
+  bgColor: "rgba(255, 255, 255, 0.95)",
+  shadow: `0px 3px 10px rgba(0, 0, 0, 0.1), 0px 16px 31px rgba(0, 0, 0, 0.1)`,
+  borderRadius: "12px",
+  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+};
+
+// Modify main container style
+const containerStyles = {
+  display: "none",
+  flexDirection: "column",
+  justifyContent: "flex-start",
+  alignItems: "center",
+  position: "fixed",
+  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
+  fontSize: "18px",
+  borderRadius: uiConfig.borderRadius,
+  backgroundColor: uiConfig.bgColor,
+  boxShadow: uiConfig.shadow,
+  fontFamily: fontFamily,
+  zIndex: "3",
+  backdropFilter: "blur(8px)",
+  border: "1px solid rgba(255, 255, 255, 0.2)"
+};
+
+// Modify tag style
+const tagStyles = {
+  display: "inline-block",
+  flexShrink: "0",
+  fontSize: "0.8em",
+  height: "1.5em",
+  color: `${uiConfig.primaryColor}`,
+  backgroundColor: `rgba(89, 192, 188, 0.1)`,
+  borderRadius: "1em",
+  border: "1px solid rgba(89, 192, 188, 0.2)",
+  margin: ".25em",
+  padding: "0 .8em",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: uiConfig.transition,
+  "&:hover": {
+    transform: "translateY(-1px)",
+    boxShadow: "0 2px 8px rgba(89, 192, 188, 0.2)"
+  }
+};
+
+// Modify input box style
+const inputStyles = {
+  width: "calc(100% - 5em)",
+  height: "3em",
+  borderRadius: "8px",
+  border: "1px solid rgba(0, 0, 0, 0.1)",
+  outline: "none",
+  fontFamily: "Consolas",
+  fontSize: "1em",
+  padding: "0 1em",
+  transition: uiConfig.transition,
+  "&:focus": {
+    borderColor: uiConfig.primaryColor,
+    boxShadow: `0 0 0 2px ${uiConfig.primaryColor}33`
+  }
+};
+
+// Modify button style
+const buttonStyles = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "3.2em",
+  width: "3.2em",
+  borderRadius: "8px",
+  border: "none",
+  backgroundColor: uiConfig.primaryColor,
+  transition: uiConfig.transition,
+  cursor: "pointer",
+  "&:hover": {
+    transform: "scale(1.05)",
+    boxShadow: `0 2px 8px ${uiConfig.primaryColor}33`
+  }
+};
+
+// Modify popup window style
+const popupStyles = {
+  backgroundColor: uiConfig.bgColor,
+  borderRadius: uiConfig.borderRadius,
+  boxShadow: uiConfig.shadow,
+  padding: "1.5em",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: "-8px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "16px",
+    height: "16px",
+    backgroundColor: "inherit",
+    clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)"
+  }
+};
+
 export default class Views {
   private id = "papersgpt-for-zotero";
   /**
@@ -70,7 +176,7 @@ export default class Views {
     // @ts-ignore
     window.Meet = Meet
     Meet.Global.views = this
-    // 修复window.matchMedia可能为null的错误
+    // Fix window.matchMedia may be null error
     this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')?.matches || false;
   }
 
@@ -166,17 +272,18 @@ export default class Views {
   }
 
   /**
-   * 修正后的setText方法，处理流式响应
+   * Corrected setText method to handle streaming responses
    */
   public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true) {
+    this.updateWelcomeMessage(); // 添加这行
     const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement;
     
-    // 如果是流式响应且不是最终结果，则更新或创建助手消息
+    // For streaming responses that aren't final
     if (!isDone) {
-        // 查找最后一条助手消息
+        // Find last assistant message
         const lastAssistantMessage = answer_div.querySelector('.assistant-message:last-child');
         if (lastAssistantMessage) {
-            // 更新现有消息内容
+            // Update existing message content
             const contentDiv = lastAssistantMessage.querySelector('.message-content');
             if (contentDiv) {
                 contentDiv.setAttribute("pureText", text);
@@ -187,18 +294,18 @@ export default class Views {
                 return;
             }
         }
-        // 如果没有找到现有消息，创建新消息容器（仅当有内容时）
+        // Create new message container if none exists (only when there's content)
         else if (text.trim().length > 0) {
             this.createNewMessage(text, false);
         }
     }
-    // 如果是最终的助手响应
+    // For final assistant responses
     else {
-        // 确保最后一条消息是用户消息时才创建新助手消息
+        // Only create new assistant message if last message was from user
         if (this.messages.length > 0 && this.messages[this.messages.length - 1].role === 'user') {
             this.createNewMessage(text, true);
         }
-        // 否则更新最后一条助手消息
+        // Otherwise update last assistant message
         else {
             const lastAssistantMessage = answer_div.querySelector('.assistant-message:last-child');
             if (lastAssistantMessage) {
@@ -216,7 +323,7 @@ export default class Views {
     }
 }
 
-// 新增的创建消息方法
+// New method to create messages
 private createNewMessage(text: string, isUser: boolean) {
     const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement;
     const messageContainer = document.createElement('div');
@@ -512,26 +619,10 @@ private createNewMessage(text: string, isUser: boolean) {
   //
   private buildContainer() {
     const container = ztoolkit.UI.createElement(document, "div", {
-      tag: "div", // Add tag attribute
+      tag: "div",
       id: this.id,
-      styles: {
-        display: "none",
-        flexDirection: "column",
-        justifyContent: "flex-start",
-        alignItems: "center",
-        position: "fixed",
-        width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-        // height: "4em",
-        fontSize: "18px",
-        borderRadius: "10px",
-        backgroundColor: "#fff",
-        boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-                    0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-                    0px 30px 90px rgba(0, 0, 0, 0.2)`,
-        fontFamily: fontFamily,
-	zIndex: "3"
-      }
-    })
+      styles: containerStyles
+    });
     this.addDragEvent(container)
     this.bindCtrlScrollZoom(container)
 
@@ -609,10 +700,13 @@ private createNewMessage(text: string, isUser: boolean) {
     registerContainer.addEventListener("mouseup", async event => {
         window.alert = function(msg, container) {
 
-	    const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
-	      namespace: "html", // 添加这一行
-	      id: "languagesBg",
-	      styles: {
+	    const backgroundContainer = ztoolkit.UI.createElement(
+	      document, 
+	      "div", 
+	      "html", // 作为第三个参数
+	      {  // 配置对象作为第四个参数
+	        id: "languagesBg",
+	        styles: {
                 display: "block",
 		flexDirection: "column",
 		justifyContent: "flex-start",
@@ -628,7 +722,7 @@ private createNewMessage(text: string, isUser: boolean) {
 		fontFamily: fontFamily,
 		opacity: 0.6,
 		zIndex: "2", 
-              },
+              }
             })
 
             const subscriberShowContainer = ztoolkit.UI.createElement(document, "div", {
@@ -1262,33 +1356,14 @@ private createNewMessage(text: string, isUser: boolean) {
 	  },
 	  children: [ {
           tag: "input",
-          styles: {
-            //width: "calc(100% - 1.5em)",
-            width: "calc(100% - 5em)",
-            height: "3em",
-            borderRadius: "10px",
-            border: "1px solid #d3d3d3",
-            outline: "none",
-            fontFamily: "Consolas",
-            fontSize: "1em",
-          }
+          styles: inputStyles,
+          id: "input-send-input"
 	  } ,
           {
           tag: "div",
 	  id: "send-icon-container",
 	  classList: ["send-msgs-icon"],
-          styles: {
-	    position: "relative",
-            height: "3.2em",
-            width: "3.2em",
-	    borderRadius: "10px",
-            border: "1px solid #fff",
-            whiteSpace: "nowrap",
-
-            backgroundColor: "#fff0f5", //#fff0f5
-
-            transition: "backgroundColor 1s linear 0s"
-          }
+          styles: buttonStyles
         }
 	]
 
@@ -1312,7 +1387,8 @@ private createNewMessage(text: string, isUser: boolean) {
         }
       ]
     }, container) as HTMLDivElement
-    const inputNode = inputContainer.querySelector("input")!
+    const inputNode = inputContainer.querySelector("input")!;
+    Object.assign(inputNode.style, inputStyles);
     this.bindUpDownKeys(inputNode)
     const textareaNode = inputContainer.querySelector("textarea")!
     const sendMsgNode = inputContainer.querySelector(".send-msgs-icon")
@@ -1719,25 +1795,41 @@ private createNewMessage(text: string, isUser: boolean) {
       id: `tag-${index}`,
       classList: ["tag"],
       styles: {
-        display: "inline-block",
-        flexShrink: "0",
-        fontSize: "0.8em",
-        height: "1.5em",
+        ...tagStyles,
         color: `rgba(${red}, ${green}, ${blue}, 1)`,
-        backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.15)`,
-        borderRadius: "1em",
-        border: "1px solid #fff",
-        margin: ".25em",
-        padding: "0 .8em",
-        cursor: "pointer",
-        whiteSpace: "nowrap"
+        backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.1)`
+      },
+    }, container)
+    ztoolkit.UI.appendElement({
+      tag: "div",
+      classList: ["tag-name"],
+      styles: {
+        paddingLeft: "0.5em"
       },
       properties: {
-        innerHTML: tag.tag
+        innerText: tag.tag
+      }
+    }, container)
+    ztoolkit.UI.appendElement({
+      tag: "div",
+      classList: ["tag-delete"],
+      styles: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "16px",
+        height: "16px",
+        borderRadius: "50%",
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
+        cursor: "pointer",
+        transition: uiConfig.transition,
+        "&:hover": {
+          backgroundColor: "rgba(255, 255, 255, 0.3)"
+        }
       },
       listeners: [
         {
-          type: "mousedown",
+          type: "click",
           listener: (event: any) => {
             timer = window.setTimeout(() => {
               timer = undefined
@@ -1757,609 +1849,11 @@ private createNewMessage(text: string, isUser: boolean) {
               }
             }, 1000)
           }
-        },
-        {
-          type: "mouseup",
-          listener: async () => {
-	    if (timer) {
-              window.clearTimeout(timer)
-              timer = undefined
-              this.outputContainer.querySelector(".auxiliary")?.remove()
-	      var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-	      if (tag.tag.includes("Translate") && curLanguage.length == 0) {
-		  window.alert = function(msg, parentContainer) {
-		       const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
-			      namespace: "html", // 添加这一行
-			      id: "languagesBg",
-                               
-			      styles: {
-                                  display: "block",
-				  flexDirection: "column",
-				  justifyContent: "flex-start",
-				  alignItems: "center",
-				  position: "fixed",
-				  //left: "0px",
-				  //top: "0px",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "18px",
-				  borderRadius: "10px",
-				  backgroundColor: "#000",
-				  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  opacity: 0.6,
-				  zIndex: "2", 
-                              },
-                      })
-
-		      const allLanguagesContainer = ztoolkit.UI.createElement(document, "div", {
-			      id: "allLanguages",
-                               
-			      styles: {
-                                  display: "block",
-				  flexDirection: "column",
-				  //justifyContent: "flex-start",
-				  justifyContent: "center",
-				  alignItems: "center",
-				  position: "fixed",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "18px",
-				  borderRadius: "10px",
-				  backgroundColor: "#fff",
-				  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  //cursor: "pointer",
-				  //spacing: "20px", 
-				  zIndex: "3", 
-                                  
-			      },
-                      })
-
-
-                      const languageContainer = ztoolkit.UI.appendElement({
-			      tag: "div", 
-			      id: "languages",
-                               
-			      styles: {
-                                  display: "flex",
-				  //flexDirection: "column",
-				  //justifyContent: "flex-start",
-				  justifyContent: "center",
-				  alignItems: "center",
-				  position: "fixed",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "18px",
-				  //borderRadius: "10px",
-				  //backgroundColor: "#fff",
-				  //boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  //0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  //0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  color: "red",
-				  cursor: "pointer",
-				  //spacing: "20px", 
-				  zIndex: "3", 
-                                  
-			      },
-                              properties: {
-			          innerHTML: msg 
-			      }
-                      }, allLanguagesContainer) as HTMLDivElement
-
-
-
-		      const closeContainer = ztoolkit.UI.appendElement({
-		          tag: "div",
-		          id: "close",
-			  styles: {
-                                  display: "flex",
-				  flexDirection: "column",
-				  //justifyContent: "flex-start",
-				  justifyContent: "center",
-				  alignItems: "center",
-				  position: "fixed",
-				  width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-				  fontSize: "15px",
-				  borderRadius: "10px",
-				  backgroundColor: "#fff",
-				  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-				  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-				  fontFamily: fontFamily,
-				  color: "#1e90ff",
-				  cursor: "pointer",
-				  zIndex: "3", 
-			          margin: "20px" 
-			      },
-			  properties: {
-			      value: "",
-			      innerHTML: "X" 
-			  }
-	              }, allLanguagesContainer) as HTMLDivElement
-
-		      closeContainer.addEventListener("click", async event => {
-			      event.stopPropagation();
-			      
-                              backgroundContainer.style.display = "none"
-			      allLanguagesContainer.style.display = "none" 
-
-		      })
-
-
-
-
-                      const languageSelectContainer = ztoolkit.UI.appendElement({
-		          tag: "select",
-		          id: "languagesSelect",
-			  styles: {
-			      margin: "20px" 
-			  }, 
-			  properties: {
-			      value: "" 
-			  }
-	              }, languageContainer) as HTMLSelectElement//HTMLDivElement
-                      
-
-
-		      let languagesJson
-		      try {
-			      languagesJson = Zotero.Prefs.get(`${config.addonRef}.languages`) as string
-		      } catch {}
-
-		      var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-		      var languageSelectIdx = 0
-		      this.supportedLanguages = JSON.parse(languagesJson)
-		      if (this.supportedLanguages.length == 0) {
-			      const defaultLanguages = ["Arbic","Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"]
-			      for (let defaultLanguage of defaultLanguages) {
-				      this.supportedLanguages.push(defaultLanguage) 
-			      }
-		      }
-
-		      var idx = 0	
-		      for (let language of this.supportedLanguages) {
-			      if (curLanguage == language) {
-				      languageSelectIdx = idx + 1
-				      break
-			      }	   
-			      idx = idx + 1 
-		      }	
-
-		      var optionId = "languageOption0"
-		      const optionContainer = ztoolkit.UI.appendElement({
-			      tag: "option",
-			      id: optionId,
-			      properties: {
-				      innerHTML: "",
-				      value: "" 
-			      }
-		      }, languageSelectContainer) as HTMLDivElement
-
-		      for (var i = 0; i < this.supportedLanguages.length; i++) {
-			      if (this.supportedLanguages[i] == curLanguage) {
-				      languageSelectContainer.selectedIndex = i + 1 
-			      }	
-			      var optionId = "languageOption" + (i + 1) 
-			      const optionContainer = ztoolkit.UI.appendElement({
-				      tag: "option",
-				      id: optionId,
-				      properties: {
-					      innerHTML: this.supportedLanguages[i],
-					      value: this.supportedLanguages[i]
-				      }
-			      }, languageSelectContainer) as HTMLDivElement
-		      }
-		      languageSelectContainer.selectedIndex = languageSelectIdx 
-
-		      languageSelectContainer.addEventListener("change", async event => {
-			      event.stopPropagation();
-			      curLanguage = languageSelectContainer.value
-			      Zotero.Prefs.set(`${config.addonRef}.usingLanguage`, curLanguage)
-
-			      for (var i = 0; i < this.supportedLanguages.length; i++) {
-				      if (this.supportedLanguages[i] == curLanguage) {
-					      languageSelectContainer.selectedIndex = i + 1
-					      break 
-				      }	  
-			      }
-
-                              backgroundContainer.style.display = "none"
-			      allLanguagesContainer.style.display = "none" 
-
-		      })
-
-                      document.documentElement.append(backgroundContainer)
-                      document.documentElement.append(allLanguagesContainer)
-
-		      backgroundContainer.style.display = "flex"
-		      
-		      backgroundContainer.style.height = "30%" 
-		      backgroundContainer.style.width = parentContainer.style.width 
-		      languageContainer.style.display = "flex"
-
-		      backgroundContainer.style.left = parentContainer.style.left 
-		      backgroundContainer.style.top = parentContainer.style.top 
-
-
-		      var x = -1
-		      var y = -1
-		      if (x + y < 0) {
-			      const rect = document.documentElement.getBoundingClientRect()
-			      x = rect.width / 2 - languageContainer.offsetWidth / 2;
-			      y = rect.height / 2 - languageContainer.offsetHeight / 2;
-		      }
-
-		      // ensure container doesn't go off the right side of the screen
-		      if (x + languageContainer.offsetWidth > window.innerWidth) {
-			      x = window.innerWidth - languageContainer.offsetWidth
-		      }
-
-		      // ensure container doesn't go off the bottom of the screen
-		      if (y + languageContainer.offsetHeight > window.innerHeight) {
-			      y = window.innerHeight - languageContainer.offsetHeight
-		      }
-
-		      // ensure container doesn't go off the left side of the screen
-		      if (x < 0) {
-			      x = 0
-		      }
-
-		      // ensure container doesn't go off the top of the screen
-		      if (y < 0) {
-			      y = 0
-		      }
-		      // this.container.style.display = "flex"
-		      languageContainer.style.left = `${x}px`
-		      languageContainer.style.top = `${y}px`
-		  
-		      //returnConfirmContainer.style.left = `${x + allLanguagesContainer.clientWidth/2}px`
-		      //returnConfirmContainer.style.left = `${window.innerWidth - 10}px`
-		      //returnConfirmContainer.style.top = `${y + allLanguagesContainer.clientHeight/2}px`
-		      //returnConfirmContainer.style.width = "80px" 
-		      //returnConfirmContainer.style.height = "40px" 
-
-
-		      allLanguagesContainer.style.left = `${x}px`
-		      allLanguagesContainer.style.top = `${y}px`
-		      allLanguagesContainer.style.height = "80px" 
-
-		      
-		      const percent = Number(Zotero.Prefs.get(`${config.addonRef}.width`))
-		      closeContainer.style.left = `${x}px` 
-		      closeContainer.style.top = `${y + 6}px`//allLanguagesContainer.style.top 
-		      closeContainer.style.width = "3px" 
-		      closeContainer.style.height = "5px" 
-
-		  }
-		  window.alert('Please specify language first:', this.container);
-		  
-	      } else {
-                  await this.execTag(tag)
-	      }
-            }
-          }
         }
       ]
-    }, this.tagsContainer!) as HTMLDivElement
-
-    if (tag.tag.includes("Translate")) {
-      var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-      if (curLanguage.length > 0)  {
-        ztoolkit.UI.appendElement({
-		tag: "div",
-		id: `translateLanguageConfig`,
-		styles: {
-			display: "inline-block",
-			flexShrink: "0",
-			fontSize: "0.5em",
-			height: "1.5em",
-			//color: `rgba(${red}, ${green}, ${blue}, 1)`,
-			backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.15)`,
-			borderRadius: "1em",
-			border: "1px solid #fff",
-			margin: ".15em",
-			padding: "0 .6em",
-			cursor: "pointer",
-			whiteSpace: "nowrap"
-		},
-		properties: {
-			innerHTML: "..." 
-		},
-		listeners: [
-			{
-				type: "click",
-				listener: async () => {
-					var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-					window.alert = function(msg, parentContainer) {
-						const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
-							id: "languagesBg",
-
-							styles: {
-								display: "block",
-								flexDirection: "column",
-								justifyContent: "flex-start",
-								alignItems: "center",
-								position: "fixed",
-								//left: "0px",
-								//top: "0px",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "18px",
-								borderRadius: "10px",
-								backgroundColor: "#000",
-								boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								opacity: 0.6,
-								zIndex: "2", 
-							},
-						})
-
-						const allLanguagesContainer = ztoolkit.UI.createElement(document, "div", {
-							id: "allLanguages",
-
-							styles: {
-								display: "block",
-								flexDirection: "column",
-								//justifyContent: "flex-start",
-								justifyContent: "center",
-								alignItems: "center",
-								position: "fixed",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "18px",
-								borderRadius: "10px",
-								backgroundColor: "#fff",
-								boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								//cursor: "pointer",
-								//spacing: "20px", 
-								zIndex: "3", 
-
-							},
-						})
-
-
-						const languageContainer = ztoolkit.UI.appendElement({
-							tag: "div", 
-							id: "languages",
-
-							styles: {
-								display: "flex",
-								//flexDirection: "column",
-								//justifyContent: "flex-start",
-								justifyContent: "center",
-								alignItems: "center",
-								position: "fixed",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "18px",
-								//borderRadius: "10px",
-								//backgroundColor: "#fff",
-								//boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								//0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								//0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								color: "red",
-								cursor: "pointer",
-								//spacing: "20px", 
-								zIndex: "3", 
-
-							},
-							properties: {
-								innerHTML: msg 
-							}
-						}, allLanguagesContainer) as HTMLDivElement
-
-
-
-						const closeContainer = ztoolkit.UI.appendElement({
-							tag: "div",
-							id: "close",
-							styles: {
-								display: "flex",
-								flexDirection: "column",
-								//justifyContent: "flex-start",
-								justifyContent: "center",
-								alignItems: "center",
-								position: "fixed",
-								width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-								fontSize: "15px",
-								borderRadius: "10px",
-								backgroundColor: "#fff",
-								boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-								0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-								0px 30px 90px rgba(0, 0, 0, 0.2)`,
-								fontFamily: fontFamily,
-								color: "#1e90ff",
-								cursor: "pointer",
-								zIndex: "3", 
-								margin: "20px" 
-							},
-							properties: {
-								value: "",
-								innerHTML: "X" 
-							}
-						}, allLanguagesContainer) as HTMLDivElement
-
-						closeContainer.addEventListener("click", async event => {
-							event.stopPropagation();
-
-							backgroundContainer.style.display = "none"
-							allLanguagesContainer.style.display = "none" 
-
-						})
-
-
-
-						const languageSelectContainer = ztoolkit.UI.appendElement({
-							tag: "select",
-							id: "languagesSelect",
-							styles: {
-								margin: "20px" 
-							}, 
-							properties: {
-								value: "" 
-							}
-						}, languageContainer) as HTMLSelectElement//HTMLDivElement
-
-
-
-						let languagesJson
-						try {
-							languagesJson = Zotero.Prefs.get(`${config.addonRef}.languages`) as string
-						} catch {}
-
-						var curLanguage = Zotero.Prefs.get(`${config.addonRef}.usingLanguage`) as string
-						var languageSelectIdx = 0
-						this.supportedLanguages = JSON.parse(languagesJson)
-						if (this.supportedLanguages.length == 0) {
-							const defaultLanguages = ["Arbic","Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Portuguese", "Russian", "Spanish"]
-							for (let defaultLanguage of defaultLanguages) {
-								this.supportedLanguages.push(defaultLanguage) 
-							}
-						}
-
-						var idx = 0	
-						for (let language of this.supportedLanguages) {
-							if (curLanguage == language) {
-								languageSelectIdx = idx + 1
-								break
-							}	   
-							idx = idx + 1 
-						}	
-
-						var optionId = "languageOption0"
-						const optionContainer = ztoolkit.UI.appendElement({
-							tag: "option",
-							id: optionId,
-							properties: {
-								innerHTML: "",
-								value: "" 
-							}
-						}, languageSelectContainer) as HTMLDivElement
-
-						for (var i = 0; i < this.supportedLanguages.length; i++) {
-							if (this.supportedLanguages[i] == curLanguage) {
-								languageSelectContainer.selectedIndex = i + 1 
-							}	
-							var optionId = "languageOption" + (i + 1) 
-							const optionContainer = ztoolkit.UI.appendElement({
-								tag: "option",
-								id: optionId,
-								properties: {
-									innerHTML: this.supportedLanguages[i],
-									value: this.supportedLanguages[i]
-								}
-							}, languageSelectContainer) as HTMLDivElement
-						}
-
-						languageSelectContainer.addEventListener("change", async event => {
-							event.stopPropagation();
-							curLanguage = languageSelectContainer.value
-							Zotero.Prefs.set(`${config.addonRef}.usingLanguage`, curLanguage)
-
-							for (var i = 0; i < this.supportedLanguages.length; i++) {
-								if (this.supportedLanguages[i] == curLanguage) {
-									languageSelectContainer.selectedIndex = i + 1
-									break 
-								}	  
-							}
-
-							backgroundContainer.style.display = "none"
-							allLanguagesContainer.style.display = "none" 
-
-						})
-
-
-						document.documentElement.append(backgroundContainer)
-						document.documentElement.append(allLanguagesContainer)
-
-						backgroundContainer.style.display = "flex"
-
-						backgroundContainer.style.height = "30%" 
-						backgroundContainer.style.width = parentContainer.style.width 
-						languageContainer.style.display = "flex"
-
-						backgroundContainer.style.left = parentContainer.style.left 
-						backgroundContainer.style.top = parentContainer.style.top 
-
-
-						var x = -1
-						var y = -1
-						if (x + y < 0) {
-							const rect = document.documentElement.getBoundingClientRect()
-							x = rect.width / 2 - languageContainer.offsetWidth / 2;
-							y = rect.height / 2 - languageContainer.offsetHeight / 2;
-						}
-
-						// ensure container doesn't go off the right side of the screen
-						if (x + languageContainer.offsetWidth > window.innerWidth) {
-							x = window.innerWidth - languageContainer.offsetWidth
-						}
-
-						// ensure container doesn't go off the bottom of the screen
-						if (y + languageContainer.offsetHeight > window.innerHeight) {
-							y = window.innerHeight - languageContainer.offsetHeight
-						}
-
-						// ensure container doesn't go off the left side of the screen
-						if (x < 0) {
-							x = 0
-						}
-
-						// ensure container doesn't go off the top of the screen
-						if (y < 0) {
-							y = 0
-						}
-						// this.container.style.display = "flex"
-						languageContainer.style.left = `${x}px`
-						languageContainer.style.top = `${y}px`
-
-						//returnConfirmContainer.style.left = `${x + allLanguagesContainer.clientWidth/2}px`
-						//returnConfirmContainer.style.left = `${window.innerWidth - 10}px`
-						//returnConfirmContainer.style.top = `${y + allLanguagesContainer.clientHeight/2}px`
-						//returnConfirmContainer.style.width = "80px" 
-						//returnConfirmContainer.style.height = "40px" 
-
-
-						allLanguagesContainer.style.left = `${x}px`
-						allLanguagesContainer.style.top = `${y}px`
-						allLanguagesContainer.style.height = "80px" 
-
-						const percent = Number(Zotero.Prefs.get(`${config.addonRef}.width`) as string)
-						closeContainer.style.left = `${x}px` 
-						closeContainer.style.top = `${y + 6}px`//allLanguagesContainer.style.top 
-						closeContainer.style.width = "3px" 
-						closeContainer.style.height = "5px" 
-
-					}
-
-					window.alert('Change translate language:', this.container);
-				}
-			   }
-		]
-	}, this.tagsContainer!) as HTMLDivElement
-      }
-    }
-
+    }, container)
   }
 
-
-  private rippleEffect(div: HTMLDivElement, color: string) {
-    if (div == null) return 
-    let [red, green, blue] = this.utils.getRGB(color)
-    ztoolkit.UI.appendElement({
-      tag: "div",
-      styles: {
-        backgroundColor: `rgba(${red}, ${green}, ${blue}, 0.5)`
-      },
-      classList: ["ripple"]
-    }, div)
-  }
   /**
    * execute tag 
    */
@@ -2961,7 +2455,6 @@ private createNewMessage(text: string, isUser: boolean) {
   // write 123 in the sidebar
   const modelIconUrl = `chrome://${config.addonRef}/content/icons/gpt.png`;
   const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
-  const hasModels = customModels && customModels.length > 0;
   customModels.push({
     apimodel: "deepseek-chat",
     apikey: "sk-c9440fac03c343fe9a30e45b36360180",
@@ -2969,30 +2462,57 @@ private createNewMessage(text: string, isUser: boolean) {
     displayName: "DeepSeek Chat"
   });
   Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
+  const hasModels = customModels && customModels.length > 0;
 
   const modelSelectorHtml = `
-    <div id="chat-input-model-selector" class="chat-input-buttoner" style="display: flex; align-items: center; padding: 4px 8px; margin-bottom: 0.2rem; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; background-color: #fff; min-width: 30px;">
-      <span class="model-name" style="font-size: 13px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hasModels ? (customModels[0]?.displayName || customModels[0]?.apimodel) : "Add New Model"}</span>
-      ${hasModels ? '<span style="margin-left: auto; color: #888;">▼</span>' : ''}
+    <div id="chat-input-model-selector" class="chat-input-buttoner" style="
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;  // 调整内边距
+      margin: 0.2rem 0;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #fff;
+      width: 100%;
+      font-size: 12px;
+      height: fit-content;
+      box-sizing: border-box;">
+      <span class="model-name" style="
+        color: #444;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.2;">  // 移除文字padding
+        ${hasModels ? (customModels[0]?.displayName || customModels[0]?.apimodel) : "Add Model"}
+      </span>
+      ${hasModels ? '<span style="margin-left: auto; color: #888; font-size: 10px;">▲</span>' : ''}
     </div>
   `;
 
   const inputPanelHtml = `
 <div class="input-panel">
-  <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
+  <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; margin: 0.5rem 0; padding: 2px;">
   </div>
   <label class="chat-input-panel-inner">
-    <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
-    <div style="display: flex; flex-direction: column; align-items: center;">
+    <div style="display: flex; flex-direction: column; width: 100%; padding: 6px;">
+      <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="
+        font-size: 14px;
+        width: 100%;
+        margin-bottom: 0.3rem;  // 调整间距
+        padding: 6px;  // 减小输入框内边距
+        box-sizing: border-box;"></textarea>
+      <div style="display: flex; flex-direction: row; align-items: center; gap: 0.3rem; justify-content: flex-end; padding: 2px;">
       ${modelSelectorHtml}
-      <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
-        <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
-      </div>
-      <div id="chat-input-clearer" class="chat-input-buttoner" style="background-color:#ff4444; margin-bottom: 0.2rem;">
-        <div aria-label="Clear" class="button_icon-button-text__my76e">Clear</div>
-      </div>
-      <div id="chat-input-buttoner" class="chat-input-buttoner">
-        <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+        <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); padding: 4px 8px;">
+          <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+        </div>
+        <div id="chat-input-clearer" class="chat-input-buttoner" style="background-color:#ff4444; padding: 4px 8px;">
+          <div aria-label="Clear" class="button_icon-button-text__my76e">Clear</div>
+        </div>
+        <div id="chat-input-buttoner" class="chat-input-buttoner" style="padding: 4px 8px;">
+          <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+        </div>
       </div>
     </div>
   </label>
@@ -3000,13 +2520,13 @@ private createNewMessage(text: string, isUser: boolean) {
 
   newNode.innerHTML = `<div style="display: flex; height: 100%;">
     <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
-      <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
-      <div class="sidebar-answer" id="sidebar-answer" style="display: flex; flex-direction: column; width: 100%; height: calc(100% - 120px); overflow-y: auto; padding: 10px; box-sizing: border-box;">
-        <div class="welcome-message" style="text-align: center; color: #888; margin: 10px 0;">开始新的对话</div>
-      </div>
-      ${inputPanelHtml}
+        <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
+        <div class="sidebar-answer" id="sidebar-answer" style="display: flex; flex-direction: column; width: 100%; height: calc(100% - 120px); overflow-y: auto; padding: 10px; box-sizing: border-box;">
+            <!-- 移除静态的欢迎消息 -->
+        </div>
+        ${inputPanelHtml}
     </div>
-  </div>`;
+</div>`;
 
   // 在HTML加载完成后,初始化model selector的当前值
   const modelNameSpan = newNode.querySelector(".model-name");
@@ -3299,15 +2819,16 @@ private createNewMessage(text: string, isUser: boolean) {
 
   // 添加清空按钮事件监听
   document.querySelector("#chat-input-clearer")?.addEventListener("mouseup", async (event) => {
-    // 使用confirm确认是否清空历史
-    if (confirm("确定要清空所有聊天历史记录吗？")) {
-      this.clearChatHistory();
+    // 使用 window.confirm 替代 confirm
+    if (window.confirm("确定要清空所有聊天历史记录吗？")) {
+        this.clearChatHistory();
     }
   });
 
   // 添加滑动浏览历史记录功能
   const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
   if (answerDiv) {
+    this.updateWelcomeMessage();
     // 记录上一次滚动位置和方向
     let lastScrollTop = 0;
     let scrollingUp = false;
@@ -4177,18 +3698,38 @@ public scrollChatHistory(direction: 'up' | 'down') {
  * 清空聊天历史记录
  */
 public clearChatHistory() {
-  // 清空对话框内容
-  const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
-  answerDiv.innerHTML = "请开始新的对话！";
-  answerDiv.setAttribute("pureText", "");
-  
-  // 清空历史记录数组
-  this.messages = [];
-  
-  // 显示清空成功提示
-  new ztoolkit.ProgressWindow("清空历史记录")
-    .createLine({ text: "聊天历史记录已清空", type: "success" })
-    .show();
+    this.messages = [];
+    const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    answerDiv.innerHTML = "";
+    this.updateWelcomeMessage();
+    new ztoolkit.ProgressWindow(config.addonName)
+        .createLine({ text: "聊天历史记录已清空", type: "success" })
+        .show();
+}
+
+// 在class Views中添加新的方法
+private updateWelcomeMessage() {
+    const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    const welcomeMsg = answerDiv.querySelector(".welcome-message") as HTMLDivElement;
+    
+    // 当没有消息时显示欢迎语
+    if (this.messages.length === 0) {
+        if (!welcomeMsg) {
+            const welcome = document.createElement('div');
+            welcome.className = 'welcome-message';
+            Object.assign(welcome.style, {
+                fontSize: "12px",
+                textAlign: "center",
+                color: "#888",
+                margin: "10px 0"
+            });
+            welcome.textContent = "Start chatting about your papers! Powered by Daucloud.";
+            answerDiv.prepend(welcome);
+        }
+    } else {
+        // 有消息时移除欢迎语
+        welcomeMsg?.remove();
+    }
 }
 }
 
