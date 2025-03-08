@@ -3059,33 +3059,40 @@ export default class Views {
   
   // write 123 in the sidebar
   const modelIconUrl = `chrome://${config.addonRef}/content/icons/gpt.png`;
+  const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+  const hasModels = customModels && customModels.length > 0;
+
+  const modelSelectorHtml = `
+    <div id="chat-input-model-selector" class="chat-input-buttoner" style="display: flex; align-items: center; padding: 4px 8px; margin-bottom: 0.2rem; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; background-color: #fff; min-width: 120px;">
+      <span class="model-name" style="font-size: 13px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hasModels ? (customModels[0]?.displayName || customModels[0]?.apimodel) : "Add New Model"}</span>
+      ${hasModels ? '<span style="margin-left: auto; color: #888;">▼</span>' : ''}
+    </div>
+  `;
+
   newNode.innerHTML = `<div style="display: flex; height: 100%;">
-                        <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
-                          <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
-                          <div class="sidebar-answer" id="sidebar-answer">
-                            Now ask your questions!
-                          </div>
-                          <div class="input-panel">
-                            <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
-                            </div>
-                            <label class="chat-input-panel-inner">
-                              <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
-                              <div style="display: flex; flex-direction: column; align-items: center;">
-                                <div id="chat-input-model-selector" class="chat-input-buttoner" style="display: flex; align-items: center; padding: 4px 8px; margin-bottom: 0.2rem; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; background-color: #fff;">
-                                  <span class="model-name" style="font-size: 13px; color: #444;">gpt-4o</span>
-                                  <span style="margin-left: auto; color: #888;">▼</span>
-                                </div>
-                                <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
-                                  <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
-                                </div>
-                                <div id="chat-input-buttoner" class="chat-input-buttoner">
-                                  <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
-                                </div>
-                              </div>
-                            </label>
-                          </div>
-                        </div>
-                      </div>`;
+    <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
+      <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
+      <div class="sidebar-answer" id="sidebar-answer">
+        Now ask your questions!
+      </div>
+      <div class="input-panel">
+        <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
+        </div>
+        <label class="chat-input-panel-inner">
+          <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            ${modelSelectorHtml}
+            <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
+              <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+            </div>
+            <div id="chat-input-buttoner" class="chat-input-buttoner">
+              <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+            </div>
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>`;
 
   // 在HTML加载完成后,初始化model selector的当前值
   const modelNameSpan = newNode.querySelector(".model-name");
@@ -3098,7 +3105,7 @@ export default class Views {
     const currentModel = customModels.find((model: any) => model.apimodel === currentModelId);
     
     // 使用 displayName 或 fallback 到 apimodel
-    modelNameSpan.textContent = currentModel?.displayName || currentModel?.apimodel || "gpt-4o";
+    modelNameSpan.textContent = currentModel?.displayName || currentModel?.apimodel || "Add new model";
   }
 
   // Add resize functionality
@@ -3273,9 +3280,16 @@ export default class Views {
   const modelSelector = newNode.querySelector("#chat-input-model-selector");
   modelSelector?.addEventListener("mouseup", async (event) => {
     const that = this;
-    const rect = modelSelector.getBoundingClientRect();
-    
     const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+    
+    // 如果没有模型，直接显示添加模型对话框
+    if (!customModels || customModels.length === 0) {
+      this.showNewModelDialog();
+      return;
+    }
+
+    // 有模型时显示下拉菜单
+    const rect = modelSelector.getBoundingClientRect();
     const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
     Zotero.log(`Available models: ${JSON.stringify(customModels)}`);
 
@@ -3436,6 +3450,7 @@ export default class Views {
 
     // 加载自定义模型配置
     const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+    const hasModels = customModels && customModels.length > 0;
     
     // 检查是否已有模型，避免重复添加
     const existingModels = customModels.map((model: any) => model.apimodel);
@@ -3484,7 +3499,39 @@ export default class Views {
     // 添加调试日志
     Zotero.log(`Added ${customModels.length} model configurations`);
     Zotero.log(`Current model in use: ${customModels[0]?.displayName || customModels[0]?.apimodel}`);
-}
+
+    // 更新下拉箭头的显示状态
+    const modelSelector = document.querySelector("#chat-input-model-selector");
+    if (modelSelector) {
+      // 先移除现有的箭头（如果存在）
+      const existingArrow = modelSelector.querySelector("span:last-child");
+      if (existingArrow && existingArrow !== modelSelector.querySelector(".model-name")) {
+        existingArrow.remove();
+      }
+
+      // 如果有模型，添加箭头
+      if (hasModels) {
+        const arrow = document.createElement("span");
+        Object.assign(arrow.style, {
+          marginLeft: "auto", 
+          color: "#888"
+        });
+        arrow.textContent = "▲";
+        modelSelector.appendChild(arrow);
+      }
+    }
+
+    // 更新模型名称显示
+    const modelNameSpan = document.querySelector(".model-name");
+    if (modelNameSpan) {
+      if (hasModels) {
+        const firstConfig = customModels[0];
+        modelNameSpan.textContent = firstConfig.displayName || firstConfig.apimodel;
+      } else {
+        modelNameSpan.textContent = "Add New Model";
+      }
+    }
+  }
 
 
   /**
@@ -3618,19 +3665,13 @@ export default class Views {
       existingMenu.remove();
     }
     
-    // 确保菜单有项目可显示
-    if (!items || items.length === 0) {
-      Zotero.log("No model items to display in menu");
-      return;
-    }
-    
     // 创建菜单容器
     const menuWrapper = doc.createElement("div") as HTMLDivElement;
     menuWrapper.className = "model-menu-wrapper";
 
     // 计算每个菜单项的高度和总高度
     const itemHeight = 40; // 每个菜单项的高度
-    const menuHeight = (items.length + 2) * itemHeight; // +2 是为分隔线和添加新模型选项
+    const menuHeight = ((items?.length || 0) + 1) * itemHeight; // +1 是为添加新模型选项
     
     // 始终将菜单定位在按钮上方
     Object.assign(menuWrapper.style, {
@@ -3647,54 +3688,113 @@ export default class Views {
       overflowY: "auto" // 如果内容过多则显示滚动条
     });
 
-    // 添加菜单项
-    items.forEach(item => {
-      const itemNode = doc.createElement("div") as HTMLDivElement;
-      Object.assign(itemNode.style, {
-        padding: "8px 12px",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
-        color: item.isSelected ? "#1d93ab" : "#444",
-        transition: "background-color 0.2s",
-        fontSize: "13px",
-        borderBottom: "1px solid #f0f0f0"
+    // 如果有现有模型，添加模型列表
+    if (items && items.length > 0) {
+      // 添加现有模型列表
+      items.forEach(item => {
+        const itemNode = doc.createElement("div") as HTMLDivElement;
+        Object.assign(itemNode.style, {
+          padding: "8px 12px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
+          color: item.isSelected ? "#1d93ab" : "#444",
+          transition: "background-color 0.2s",
+          fontSize: "13px",
+          borderBottom: "1px solid #f0f0f0"
+        });
+        
+        // 修改菜单项的 HTML 结构，添加删除按钮
+        itemNode.innerHTML = `
+          <span style="flex-grow: 1;">${item.name}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${item.isSelected ? '<span style="color: #1d93ab;">✓</span>' : ''}
+            <span class="delete-btn" style="color: #ff4444; padding: 0 4px; opacity: 0; transition: opacity 0.2s;">✕</span>
+          </div>
+        `;
+
+        // 鼠标悬停效果
+        itemNode.addEventListener("mouseenter", () => {
+          itemNode.style.backgroundColor = "#f5f5f5";
+          const deleteBtn = itemNode.querySelector(".delete-btn") as HTMLElement;
+          if (deleteBtn) {
+            deleteBtn.style.opacity = "1";
+          }
+        });
+
+        itemNode.addEventListener("mouseleave", () => {
+          itemNode.style.backgroundColor = item.isSelected ? "#f0f0f0" : "#ffffff";
+          const deleteBtn = itemNode.querySelector(".delete-btn") as HTMLElement;
+          if (deleteBtn) {
+            deleteBtn.style.opacity = "0";
+          }
+        });
+
+        // 点击事件处理
+        itemNode.addEventListener("click", async (e) => {
+          const target = e.target as HTMLElement;
+          // 如果点击的是删除按钮
+          if (target.classList.contains("delete-btn")) {
+            e.stopPropagation(); // 阻止冒泡，避免触发选择事件
+
+            // 获取当前模型配置
+            const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+            
+            // 从配置中移除该模型
+            const updatedModels = customModels.filter((model: any) => model.apimodel !== item.apimodel);
+            
+            // 保存更新后的配置
+            Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(updatedModels));
+
+            // 如果删除的是当前选中的模型，则重置当前模型
+            if (item.isSelected) {
+              const firstModel = updatedModels[0];
+              if (firstModel) {
+                Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstModel.apimodel);
+                Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstModel.apiurl);
+                Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstModel.apikey);
+              } else {
+                // 如果没有其他模型了，清空当前模型设置
+                Zotero.Prefs.clear(`${config.addonRef}.usingModel`);
+                Zotero.Prefs.clear(`${config.addonRef}.usingAPIURL`);
+                Zotero.Prefs.clear(`${config.addonRef}.usingAPIKEY`);
+              }
+            }
+
+            // 更新界面
+            this.callback();
+            menuWrapper.remove();
+
+            // 显示删除成功消息
+            new ztoolkit.ProgressWindow("Remove Model")
+              .createLine({ text: "Model configuration has been removed", type: "success" })
+              .show();
+
+            return;
+          }
+
+          // 常规点击处理（选择模型）
+          try {
+            await item.listener();
+          } catch (error) {
+            Zotero.log(`Error in model selection: ${error}`);
+          }
+          menuWrapper.remove();
+        });
+
+        menuWrapper.appendChild(itemNode);
       });
-      
-      itemNode.innerHTML = `
-        <span style="flex-grow: 1;">${item.name}</span>
-        ${item.isSelected ? '<span style="margin-left: 8px;">✓</span>' : ''}
-      `;
 
-      itemNode.addEventListener("mouseenter", () => {
-        itemNode.style.backgroundColor = "#f5f5f5";
+      // 添加分隔线
+      const separator = doc.createElement("div") as HTMLDivElement;
+      Object.assign(separator.style, {
+        height: "1px",
+        margin: "8px 0",
+        backgroundColor: "#e0e0e0"
       });
-
-      itemNode.addEventListener("mouseleave", () => {
-        itemNode.style.backgroundColor = item.isSelected ? "#f0f0f0" : "#ffffff";
-      });
-
-      itemNode.addEventListener("click", async () => {
-        try {
-          await item.listener();
-        } catch (error) {
-          Zotero.log(`Error in model selection: ${error}`);
-        }
-        menuWrapper.remove();
-      });
-
-      menuWrapper.appendChild(itemNode);
-    });
-
-    // 添加分隔线
-    const separator = doc.createElement("div") as HTMLDivElement;
-    Object.assign(separator.style, {
-      height: "1px",
-      margin: "8px 0",
-      backgroundColor: "#e0e0e0"
-    });
-    menuWrapper.appendChild(separator);
+      menuWrapper.appendChild(separator);
+    }
 
     // 添加"新建模型"选项
     const newModelItem = doc.createElement("div") as HTMLDivElement;
@@ -3710,7 +3810,7 @@ export default class Views {
     });
     
     newModelItem.innerHTML = `
-      <span style="flex-grow: 1;">➕ Add New Model</span>  
+      <span style="flex-grow: 1;">➕ ${items?.length ? 'Add New Model' : 'Add Your First Model'}</span>  
     `;
 
     newModelItem.addEventListener("mouseenter", () => {
