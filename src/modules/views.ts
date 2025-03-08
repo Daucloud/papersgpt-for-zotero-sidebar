@@ -70,7 +70,8 @@ export default class Views {
     // @ts-ignore
     window.Meet = Meet
     Meet.Global.views = this
-    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // 修复window.matchMedia可能为null的错误
+    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')?.matches || false;
   }
 
   private addStyle() {
@@ -165,189 +166,82 @@ export default class Views {
   }
 
   /**
-   * Set answer area text
-   * @param text 
-   * @param isDone 
+   * 修正后的setText方法，处理流式响应
    */
-  public setText_backup(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
-    this.outputContainer.style.display = ""
-    const outputDiv = this.outputContainer.querySelector(".markdown-body")! as HTMLDivElement
-    outputDiv.setAttribute("pureText", text);
-    outputDiv.classList.add("streaming");
-    let ready = () => {
-      if (outputDiv.innerHTML.trim() == "") {
-        outputDiv.innerHTML = `<p></p>`
-      }
-    }
-    ready()
-    /**
-     * Render based on differences, just to preserve cursor blinking
-     */
-    let md2html = () => {
-      let result = markdown.render(text)
-        // .replace(/<mjx-assistive-mml[^>]*>.*?<\/mjx-assistive-mml>/g, "")
-      /**
-       * Monitor differences and replace nodes or text
-       * @param oldNode 
-       * @param newNode 
-       * @returns 
-       */
-      let diffRender = (oldNode: any, newNode: any) => {
-        if (newNode.nodeName == "svg") {
-          oldNode.parentNode.replaceChild(newNode, oldNode)
-          return
-        }
-        if (oldNode.nodeName == "#text" && newNode.nodeName == "#text") { 
-          oldNode.data = newNode.data
-          return
-        } else {
-          if (
-            oldNode.outerHTML == newNode.outerHTML &&
-            oldNode.innerHTML == newNode.innerHTML
-          ) {
-            return
-          }
-        }
-        // There are more old ones than new ones and need to be removed
-        [...oldNode.childNodes].slice(newNode.childNodes.length).forEach((e: any)=>e.remove())
-        for (let i = 0; i < newNode.childNodes.length; i++) {
-          if (i < oldNode.childNodes.length) {
-            if (oldNode.childNodes[i].tagName != newNode.childNodes[i].tagName) {
-              if (oldNode.childNodes[i].tagName == "#text") {
-                oldNode.childNodes[i].remove()
-                oldNode.appendChild(newNode.childNodes[i])
-              } else {
-                oldNode.replaceChild(newNode.childNodes[i], oldNode.childNodes[i])
-              }
-              continue
-            } else {
-              diffRender(oldNode.childNodes[i], newNode.childNodes[i])
+  public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true) {
+    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    
+    // 如果是流式响应且不是最终结果，则更新或创建助手消息
+    if (!isDone) {
+        // 查找最后一条助手消息
+        const lastAssistantMessage = answer_div.querySelector('.assistant-message:last-child');
+        if (lastAssistantMessage) {
+            // 更新现有消息内容
+            const contentDiv = lastAssistantMessage.querySelector('.message-content');
+            if (contentDiv) {
+                contentDiv.setAttribute("pureText", text);
+                contentDiv.innerHTML = markdown.render(text);
+                if (scrollToNewLine) {
+                    answer_div.scrollTop = answer_div.scrollHeight;
+                }
+                return;
             }
-          } else {
-            oldNode.appendChild(newNode.childNodes[i])
-          }
         }
-      }
-      // Plain text itself does not require MD rendering to prevent deformation due to inconsistent styles
-      let _outputDiv = outputDiv.cloneNode(true) as HTMLDivElement
-      try {
-        _outputDiv.innerHTML = result
-        if (outputDiv.childNodes.length == 0) {
-          outputDiv.innerHTML = result
-        } else {
-          diffRender(outputDiv, _outputDiv)
+        // 如果没有找到现有消息，创建新消息容器（仅当有内容时）
+        else if (text.trim().length > 0) {
+            this.createNewMessage(text, false);
         }
-      } catch {
-        outputDiv.innerText = result
-      }
     }
-    md2html()
-    ready()
-    // @ts-ignore
-    scrollToNewLine && this.outputContainer.scrollBy(0, this.outputContainer.scrollTopMax)
-    if (isDone) {
-      // Any live preview errors at the end should disappear because of the following sentence
-      outputDiv.innerHTML = markdown.render(text)
-      if (isRecord) {
-        this._history.push({ input: Meet.Global.input, output: text })
-      }
-      outputDiv.classList.remove("streaming")
-      if (this.isInNote) {
-        this.hide()
-        // The following is written after completing the answer Better Notes. Two options for master notes
-        Meet.BetterNotes.insertEditorText(outputDiv.innerHTML)
-      }
-    }
-  }
-
-  /**
-   * Set answer area text
-   * @param text 
-   * @param isDone 
-   */
-  public setText(text: string, isDone: boolean = false, scrollToNewLine: boolean = true, isRecord: boolean = true,) {
-    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement
-
-    answer_div.setAttribute("pureText", text);
-
-    if (answer_div.innerHTML.trim() == "") {
-      answer_div.innerHTML = `<p></p>`
-    }
-
-    /**
-     * Render based on differences, just to preserve cursor blinking
-     */
-    let md2html = () => {
-      let result = markdown.render(text)
-        // .replace(/<mjx-assistive-mml[^>]*>.*?<\/mjx-assistive-mml>/g, "")
-      /**
-       * Monitor differences and replace nodes or text
-       * @param oldNode 
-       * @param newNode 
-       * @returns 
-       */
-      let diffRender = (oldNode: any, newNode: any) => {
-        if (newNode.nodeName == "svg") {
-          oldNode.parentNode.replaceChild(newNode, oldNode)
-          return
+    // 如果是最终的助手响应
+    else {
+        // 确保最后一条消息是用户消息时才创建新助手消息
+        if (this.messages.length > 0 && this.messages[this.messages.length - 1].role === 'user') {
+            this.createNewMessage(text, true);
         }
-        if (oldNode.nodeName == "#text" && newNode.nodeName == "#text") { 
-          oldNode.data = newNode.data
-          return
-        } else {
-          if (
-            oldNode.outerHTML == newNode.outerHTML &&
-            oldNode.innerHTML == newNode.innerHTML
-          ) {
-            return
-          }
-        }
-        // There are more old ones than new ones and need to be removed
-        [...oldNode.childNodes].slice(newNode.childNodes.length).forEach((e: any)=>e.remove())
-        for (let i = 0; i < newNode.childNodes.length; i++) {
-          if (i < oldNode.childNodes.length) {
-            if (oldNode.childNodes[i].tagName != newNode.childNodes[i].tagName) {
-              if (oldNode.childNodes[i].tagName == "#text") {
-                oldNode.childNodes[i].remove()
-                oldNode.appendChild(newNode.childNodes[i])
-              } else {
-                oldNode.replaceChild(newNode.childNodes[i], oldNode.childNodes[i])
-              }
-              continue
-            } else {
-              diffRender(oldNode.childNodes[i], newNode.childNodes[i])
+        // 否则更新最后一条助手消息
+        else {
+            const lastAssistantMessage = answer_div.querySelector('.assistant-message:last-child');
+            if (lastAssistantMessage) {
+                const contentDiv = lastAssistantMessage.querySelector('.message-content');
+                if (contentDiv) {
+                    contentDiv.setAttribute("pureText", text);
+                    contentDiv.innerHTML = markdown.render(text);
+                }
             }
-          } else {
-            oldNode.appendChild(newNode.childNodes[i])
-          }
         }
-      }
-      // Plain text itself does not require MD rendering to prevent deformation due to inconsistent styles
-      let _outputDiv = answer_div.cloneNode(true) as HTMLDivElement
-      try {
-        _outputDiv.innerHTML = result
-        if (answer_div.childNodes.length == 0) {
-          answer_div.innerHTML = result
-        } else {
-          diffRender(answer_div, _outputDiv)
-        }
-      } catch {
-        answer_div.innerText = result
-      }
     }
-    md2html()
-    if (answer_div.innerHTML.trim() == "") {
-      answer_div.innerHTML = `<p></p>`
-    }
-    // scrollToNewLine && answer_div.scrollBy(0, answer_div.scrollTopMax)
 
-    if (isDone) {
-      // Any live preview errors at the end should disappear because of the following sentence
-      // answer_div.innerHTML = markdown.render(text)
-      // ! [c7w] TODO if record
-      // scrollToNewLine && answer_div.scrollBy(0, answer_div.scrollTopMax)
+    if (scrollToNewLine) {
+        answer_div.scrollTop = answer_div.scrollHeight;
     }
-  }
+}
+
+// 新增的创建消息方法
+private createNewMessage(text: string, isUser: boolean) {
+    const answer_div = document.querySelector("#sidebar-answer") as HTMLDivElement;
+    const messageContainer = document.createElement('div');
+    messageContainer.className = `chat-message ${isUser ? 'user-message' : 'assistant-message'}`;
+    
+    Object.assign(messageContainer.style, {
+        marginBottom: '12px',
+        padding: '8px',
+        borderRadius: '8px',
+        maxWidth: '85%',
+        position: 'relative',
+        alignSelf: isUser ? 'flex-end' : 'flex-start',
+        marginLeft: isUser ? 'auto' : '0',
+        backgroundColor: isUser ? '#e6f7ff' : '#f5f5f5',
+        color: '#000'
+    });
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content markdown-body';
+    contentDiv.setAttribute("pureText", text);
+    contentDiv.innerHTML = markdown.render(text);
+    messageContainer.appendChild(contentDiv);
+
+    answer_div.appendChild(messageContainer);
+}
 
   private addDragEvent(node: HTMLDivElement) {
     let posX: number, posY: number
@@ -716,6 +610,7 @@ export default class Views {
         window.alert = function(msg, container) {
 
 	    const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
+	      namespace: "html", // 添加这一行
 	      id: "languagesBg",
 	      styles: {
                 display: "block",
@@ -1874,6 +1769,7 @@ export default class Views {
 	      if (tag.tag.includes("Translate") && curLanguage.length == 0) {
 		  window.alert = function(msg, parentContainer) {
 		       const backgroundContainer = ztoolkit.UI.createElement(document, "div", {
+			      namespace: "html", // 添加这一行
 			      id: "languagesBg",
                                
 			      styles: {
@@ -2546,13 +2442,18 @@ export default class Views {
     }
     popunWin.createLine({ text: `Characters ${text.length}`, type: "success" })
     popunWin.createLine({ text: "Answering...", type: "default" })
-    text = await Meet.integratellms.getGPTResponse(text) as string
+    // 修改后的GPT响应处理逻辑
+    const output_text = await Meet.integratellms.getGPTResponse(text) as string;
+    
+    // 更新最后一条消息内容（流式更新）
+    this.messages[this.messages.length - 1].content = output_text;
+    this.setText(output_text, true, true, false);  // isDone设为true表示最终响应
     this.dotsContainer?.classList.remove("loading")
-    if (text.trim().length) {
+    if (output_text.trim().length) {
       try {
         window.eval(`
           setTimeout(async () => {
-            ${text}
+            ${output_text}
           })
         `)
         popunWin.createLine({ text: "Code is executed", type: "success" })
@@ -3061,36 +2962,49 @@ export default class Views {
   const modelIconUrl = `chrome://${config.addonRef}/content/icons/gpt.png`;
   const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
   const hasModels = customModels && customModels.length > 0;
+  customModels.push({
+    apimodel: "deepseek-chat",
+    apikey: "sk-c9440fac03c343fe9a30e45b36360180",
+    apiurl: "https://api.deepseek.com/v1/chat/completions",
+    displayName: "DeepSeek Chat"
+  });
+  Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
 
   const modelSelectorHtml = `
-    <div id="chat-input-model-selector" class="chat-input-buttoner" style="display: flex; align-items: center; padding: 4px 8px; margin-bottom: 0.2rem; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; background-color: #fff; min-width: 120px;">
+    <div id="chat-input-model-selector" class="chat-input-buttoner" style="display: flex; align-items: center; padding: 4px 8px; margin-bottom: 0.2rem; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; background-color: #fff; min-width: 30px;">
       <span class="model-name" style="font-size: 13px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hasModels ? (customModels[0]?.displayName || customModels[0]?.apimodel) : "Add New Model"}</span>
       ${hasModels ? '<span style="margin-left: auto; color: #888;">▼</span>' : ''}
     </div>
   `;
 
+  const inputPanelHtml = `
+<div class="input-panel">
+  <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
+  </div>
+  <label class="chat-input-panel-inner">
+    <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
+    <div style="display: flex; flex-direction: column; align-items: center;">
+      ${modelSelectorHtml}
+      <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
+        <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
+      </div>
+      <div id="chat-input-clearer" class="chat-input-buttoner" style="background-color:#ff4444; margin-bottom: 0.2rem;">
+        <div aria-label="Clear" class="button_icon-button-text__my76e">Clear</div>
+      </div>
+      <div id="chat-input-buttoner" class="chat-input-buttoner">
+        <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
+      </div>
+    </div>
+  </label>
+</div>`;
+
   newNode.innerHTML = `<div style="display: flex; height: 100%;">
     <div style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; flex: 1; position: relative;">
       <div class="resize-handle" style="position: absolute; left: -5px; width: 10px; height: 100%; cursor: ew-resize; background-color: transparent;"></div>
-      <div class="sidebar-answer" id="sidebar-answer">
-        Now ask your questions!
+      <div class="sidebar-answer" id="sidebar-answer" style="display: flex; flex-direction: column; width: 100%; height: calc(100% - 120px); overflow-y: auto; padding: 10px; box-sizing: border-box;">
+        <div class="welcome-message" style="text-align: center; color: #888; margin: 10px 0;">开始新的对话</div>
       </div>
-      <div class="input-panel">
-        <div id="input-panel-prompt-list" class="input-panel-prompt-list" style="display: flex; flex-wrap: wrap; marigin: 0.5rem;">
-        </div>
-        <label class="chat-input-panel-inner">
-          <textarea id="chat-input" class="chat-input" placeholder="Chat Bot by c7w :)" rows="3" style="font-size: 14px;"></textarea>
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            ${modelSelectorHtml}
-            <div id="chat-input-copyer" class="chat-input-buttoner" style="background-color:rgb(146, 168, 22); margin-bottom: 0.2rem;">
-              <div aria-label="Copy" class="button_icon-button-text__my76e">Copy</div>
-            </div>
-            <div id="chat-input-buttoner" class="chat-input-buttoner">
-              <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
-            </div>
-          </div>
-        </label>
-      </div>
+      ${inputPanelHtml}
     </div>
   </div>`;
 
@@ -3200,18 +3114,39 @@ export default class Views {
     }
 
     let final_input_text = original_prompt;
-    Zotero.log(`PDF selection: ${pdf_selection}`);
     if (prompt.read_selection) {
       final_input_text = `${original_prompt}\n${pdf_selection}`;
     } else {
       final_input_text = `${original_prompt}`;
     }
 
-    //! start sending requests!
+    // 添加用户消息到历史并显示
+    this.messages.push({
+      role: "user", 
+      content: final_input_text
+    });
+    
+    // 显示用户消息
+    this.setText(final_input_text, true, true, false);
+    
+    // 添加一个临时的助手消息（思考中）
+    const thinkingMsg = {
+      role: "assistant",
+      content: "思考中..."
+    };
+    this.messages.push(thinkingMsg);
+    this.setText(thinkingMsg.content, false, true, false);
+    
+    // 发送请求获取回复
     const output_text = await Meet.integratellms.getGPTResponse(final_input_text) as string;
-
-
-    this.isInference = false
+    
+    // 更新助手消息内容
+    this.messages[this.messages.length - 1].content = output_text;
+    
+    // 只需要更新显示一次，删除重复的更新代码
+    this.setText(output_text, true, true, false);
+    
+    this.isInference = false;
   }
   
   //! 3 Dynamic Rendering
@@ -3362,7 +3297,80 @@ export default class Views {
     }
   });
 
-  
+  // 添加清空按钮事件监听
+  document.querySelector("#chat-input-clearer")?.addEventListener("mouseup", async (event) => {
+    // 使用confirm确认是否清空历史
+    if (confirm("确定要清空所有聊天历史记录吗？")) {
+      this.clearChatHistory();
+    }
+  });
+
+  // 添加滑动浏览历史记录功能
+  const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+  if (answerDiv) {
+    // 记录上一次滚动位置和方向
+    let lastScrollTop = 0;
+    let scrollingUp = false;
+    
+    // 添加鼠标滚轮事件监听
+    answerDiv.addEventListener('wheel', (event) => {
+      // 当按住Ctrl键时，触发历史记录浏览
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        
+        // 确定滚动方向
+        scrollingUp = event.deltaY < 0;
+        
+        // 如果没有聊天历史，提示用户
+        if (this.messages.length === 0) {
+          const notification = document.createElement('div');
+          notification.textContent = '没有聊天历史记录';
+          notification.style.padding = '10px';
+          notification.style.backgroundColor = '#f0f0f0';
+          notification.style.borderRadius = '4px';
+          notification.style.textAlign = 'center';
+          notification.style.margin = '10px 0';
+          
+          answerDiv.appendChild(notification);
+          
+          setTimeout(() => {
+            notification.remove();
+          }, 2000);
+          
+          return;
+        }
+        
+        // 调用历史记录浏览方法
+        this.scrollChatHistory(scrollingUp ? 'up' : 'down');
+      }
+    });
+    
+    // 添加触摸手势支持（针对触摸屏和触控板）
+    let touchStartY = 0;
+    
+    answerDiv.addEventListener('touchstart', (event) => {
+      if (event.touches.length === 2) { // 双指触摸
+        touchStartY = event.touches[0].clientY;
+      }
+    }, { passive: false });
+    
+    answerDiv.addEventListener('touchmove', (event) => {
+      if (event.touches.length === 2) { // 双指触摸
+        event.preventDefault();
+        
+        const touchY = event.touches[0].clientY;
+        const deltaY = touchY - touchStartY;
+        
+        // 如果移动距离足够大，触发历史记录浏览
+        if (Math.abs(deltaY) > 30) {
+          scrollingUp = deltaY > 0;
+          this.scrollChatHistory(scrollingUp ? 'up' : 'down');
+          touchStartY = touchY; // 重置起始位置
+        }
+      }
+    }, { passive: false });
+  }
+
 }
 
 
@@ -4067,4 +4075,120 @@ private showNewModelDialog() {
     // 聚焦第一个输入框
     (doc.getElementById("model-display-name") as HTMLInputElement).focus();
 }
+
+/**
+ * 滑动浏览聊天历史记录
+ * @param direction 'up' 向上滑动获取更旧的记录，'down' 向下滑动获取更新的记录
+ */
+public scrollChatHistory(direction: 'up' | 'down') {
+  const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+  const chatHistoryContainer = document.createElement('div');
+  chatHistoryContainer.className = 'chat-history-container';
+  chatHistoryContainer.style.maxHeight = '400px';
+  chatHistoryContainer.style.overflowY = 'auto';
+  chatHistoryContainer.style.border = '1px solid #e0e0e0';
+  chatHistoryContainer.style.borderRadius = '4px';
+  chatHistoryContainer.style.padding = '10px';
+  chatHistoryContainer.style.margin = '10px 0';
+  
+  // 为每条消息创建显示元素
+  this.messages.forEach((msg, index) => {
+    const msgElement = document.createElement('div');
+    msgElement.className = `message ${msg.role}`;
+    msgElement.style.marginBottom = '10px';
+    msgElement.style.padding = '8px';
+    msgElement.style.borderRadius = '4px';
+    msgElement.style.maxWidth = '80%';
+    
+    if (msg.role === 'user') {
+      msgElement.style.marginLeft = 'auto';
+      msgElement.style.backgroundColor = '#e6f7ff';
+    } else {
+      msgElement.style.backgroundColor = '#f5f5f5';
+    }
+    
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'role-label';
+    roleLabel.textContent = msg.role === 'user' ? '用户' : '助手';
+    roleLabel.style.fontWeight = 'bold';
+    roleLabel.style.marginBottom = '4px';
+    
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    content.textContent = msg.content;
+    
+    msgElement.appendChild(roleLabel);
+    msgElement.appendChild(content);
+    chatHistoryContainer.appendChild(msgElement);
+  });
+  
+  const closeButton = document.createElement('button');
+  closeButton.textContent = '关闭历史记录';
+  closeButton.style.marginTop = '10px';
+  closeButton.style.padding = '5px 10px';
+  closeButton.style.borderRadius = '4px';
+  closeButton.style.border = 'none';
+  closeButton.style.backgroundColor = '#1d93ab';
+  closeButton.style.color = 'white';
+  closeButton.style.cursor = 'pointer';
+  
+  closeButton.addEventListener('click', () => {
+    chatHistoryContainer.remove();
+    closeButton.remove();
+  });
+  
+  // 保存当前内容
+  const currentContent = answerDiv.innerHTML;
+  const currentPureText = answerDiv.getAttribute("pureText") || "";
+  
+  // 清空并显示历史记录
+  answerDiv.innerHTML = '';
+  answerDiv.appendChild(chatHistoryContainer);
+  answerDiv.appendChild(closeButton);
+  
+  // 滚动到底部或顶部
+  if (direction === 'down') {
+    chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+  } else {
+    chatHistoryContainer.scrollTop = 0;
+  }
+  
+  // 添加返回按钮
+  const backButton = document.createElement('button');
+  backButton.textContent = '返回当前对话';
+  backButton.style.marginTop = '10px';
+  backButton.style.marginRight = '10px';
+  backButton.style.padding = '5px 10px';
+  backButton.style.borderRadius = '4px';
+  backButton.style.border = 'none';
+  backButton.style.backgroundColor = '#4169e1';
+  backButton.style.color = 'white';
+  backButton.style.cursor = 'pointer';
+  
+  backButton.addEventListener('click', () => {
+    answerDiv.innerHTML = currentContent;
+    answerDiv.setAttribute("pureText", currentPureText);
+  });
+  
+  answerDiv.insertBefore(backButton, closeButton);
 }
+
+/**
+ * 清空聊天历史记录
+ */
+public clearChatHistory() {
+  // 清空对话框内容
+  const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
+  answerDiv.innerHTML = "请开始新的对话！";
+  answerDiv.setAttribute("pureText", "");
+  
+  // 清空历史记录数组
+  this.messages = [];
+  
+  // 显示清空成功提示
+  new ztoolkit.ProgressWindow("清空历史记录")
+    .createLine({ text: "聊天历史记录已清空", type: "success" })
+    .show();
+}
+}
+
