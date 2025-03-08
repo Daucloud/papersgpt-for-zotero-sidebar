@@ -112,6 +112,24 @@ const buttonStyles = {
   }
 };
 
+// 添加停止按钮样式
+const stopButtonStyles = {
+  display: "none", // 初始时隐藏
+  justifyContent: "center",
+  alignItems: "center",
+  height: "3.2em",
+  width: "3.2em",
+  borderRadius: "8px",
+  border: "none",
+  backgroundColor: "#DC3545", // 使用危险色
+  transition: uiConfig.transition,
+  cursor: "pointer",
+  "&:hover": {
+    transform: "scale(1.05)",
+    boxShadow: `0 2px 8px rgba(220, 53, 69, 0.3)`
+  }
+};
+
 // Modify popup window style
 const popupStyles = {
   backgroundColor: uiConfig.bgColor,
@@ -1364,6 +1382,13 @@ private createNewMessage(text: string, isUser: boolean) {
 	  id: "send-icon-container",
 	  classList: ["send-msgs-icon"],
           styles: buttonStyles
+        },
+        // 添加停止按钮
+        {
+        tag: "div",
+        id: "stop-icon-container",
+        classList: ["stop-msgs-icon"],
+        styles: stopButtonStyles
         }
 	]
 
@@ -1392,6 +1417,7 @@ private createNewMessage(text: string, isUser: boolean) {
     this.bindUpDownKeys(inputNode)
     const textareaNode = inputContainer.querySelector("textarea")!
     const sendMsgNode = inputContainer.querySelector(".send-msgs-icon")
+    const stopMsgNode = inputContainer.querySelector(".stop-msgs-icon")
 
        
     ztoolkit.UI.appendElement({
@@ -1410,6 +1436,23 @@ private createNewMessage(text: string, isUser: boolean) {
 	    alt: ""	    
 	},
     }, sendMsgNode)
+
+    ztoolkit.UI.appendElement({
+        tag: "img",
+        id: "msg-stop-icon",
+        styles: {
+          position: "absolute",
+          top: "30%",
+          left: "30%",
+          width: "1.2em",
+          height: "1.2em",
+          justifyContent: "center"	
+        },
+        properties: {
+            src: `chrome://${config.addonRef}/content/icons/stop-circle-fill.svg`,
+            alt: "Stop"	    
+        },
+    }, stopMsgNode)
 
     sendMsgNode.addEventListener("mousedown", async event => {
         let msgNode = this.inputContainer.querySelector(".send-msgs-icon")
@@ -1862,7 +1905,16 @@ private createNewMessage(text: string, isUser: boolean) {
       return 
     }
     this.isInference = true
-
+    
+    // 添加这些行来显示停止按钮并隐藏发送按钮
+    const sendMsgNode = this.inputContainer.querySelector(".send-msgs-icon") as HTMLElement;
+    const stopMsgNode = this.inputContainer.querySelector(".stop-msgs-icon") as HTMLElement;
+    
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "none";
+        stopMsgNode.style.display = "flex";
+    }
+    
     let msgNode = this.inputContainer.querySelector(".send-msgs-icon")
     let inputText = this.inputContainer.querySelector("input")?.value as string
     if (msgNode && inputText.length > 0) {
@@ -1956,7 +2008,7 @@ private createNewMessage(text: string, isUser: boolean) {
     } else {
       popunWin.createLine({ text: "Done", type: "fail" })
     }
-    popunWin.startCloseTimer(3000)
+    popunWin.startCloseTimer(1000) // 從3000毫秒減少到1000毫秒
     this.isInference = false
     
     msgNode = this.inputContainer.querySelector(".send-msgs-icon")
@@ -1965,7 +2017,11 @@ private createNewMessage(text: string, isUser: boolean) {
         msgNode.style.backgroundColor = "#4169e1"
     }	
 
-
+    // 恢复按钮状态
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "flex";
+        stopMsgNode.style.display = "none";
+    }
   }
 
   /**
@@ -1993,8 +2049,26 @@ private createNewMessage(text: string, isUser: boolean) {
     outputDiv.setAttribute("pureText", "");
     if (text.trim().length == 0) { return }
     this.dotsContainer?.classList.add("loading")
+    
+    // 添加这些行来显示停止按钮并隐藏发送按钮
+    const sendMsgNode = this.inputContainer.querySelector(".send-msgs-icon") as HTMLElement;
+    const stopMsgNode = this.inputContainer.querySelector(".stop-msgs-icon") as HTMLElement;
+    
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "none";
+        stopMsgNode.style.display = "flex";
+    }
+    
     await Meet.integratellms.getGPTResponse(text)
+    
+    // 恢复按钮状态
+    if (sendMsgNode && stopMsgNode) {
+        sendMsgNode.style.display = "flex";
+        stopMsgNode.style.display = "none";
+    }
+    
     this.dotsContainer?.classList.remove("loading")
+    this.isInference = false; // 添加这行以重置推理状态
   }
 
   /**
@@ -2510,6 +2584,9 @@ private createNewMessage(text: string, isUser: boolean) {
         <div id="chat-input-clearer" class="chat-input-buttoner" style="background-color:#ff4444; padding: 4px 8px;">
           <div aria-label="Clear" class="button_icon-button-text__my76e">Clear</div>
         </div>
+        <div id="chat-input-stopper" class="chat-input-buttoner" style="background-color:#DC3545; padding: 4px 8px; display:none;">
+          <div aria-label="Stop" class="button_icon-button-text__my76e">Stop</div>
+        </div>
         <div id="chat-input-buttoner" class="chat-input-buttoner" style="padding: 4px 8px;">
           <div aria-label="send" class="button_icon-button-text__my76e">Send</div>
         </div>
@@ -2621,7 +2698,15 @@ private createNewMessage(text: string, isUser: boolean) {
       return 
     }
     this.isInference = true
-
+    
+    // 显示停止按钮，隐藏发送按钮
+    const sendButton = document.querySelector("#chat-input-buttoner") as HTMLElement;
+    const stopButton = document.querySelector("#chat-input-stopper") as HTMLElement;
+    if (sendButton && stopButton) {
+        sendButton.style.display = "none";
+        stopButton.style.display = "flex";
+    }
+    
     //! building the prompt
     let original_prompt = prompt.prompt;
     let pdf_selection = Meet.Zotero.getPDFSelection();
@@ -2667,6 +2752,12 @@ private createNewMessage(text: string, isUser: boolean) {
     this.setText(output_text, true, true, false);
     
     this.isInference = false;
+    
+    // 恢复按钮状态
+    if (sendButton && stopButton) {
+        sendButton.style.display = "flex";
+        stopButton.style.display = "none";
+    }
   }
   
   //! 3 Dynamic Rendering
@@ -2891,6 +2982,13 @@ private createNewMessage(text: string, isUser: boolean) {
       }
     }, { passive: false });
   }
+
+  // 在侧边栏中添加停止按钮的事件监听器
+  document.querySelector("#chat-input-stopper")?.addEventListener("mouseup", async (event) => {
+      if (this.isInference) {
+          this.stopGeneration();
+      }
+  });
 
 }
 
@@ -3569,7 +3667,7 @@ private showNewModelDialog() {
         closeDialog();
         
         // 显示成功消息
-        new ztoolkit.ProgressWindow("Add Model")  // 改为英文
+        new ztoolkit.ProgressWindow("Add Model", { closeTime: 1500 })  // 添加closeTime參數
           .createLine({ text: "New model configuration has been added", type: "success" })  // 改为英文
           .show();
 
@@ -3702,8 +3800,8 @@ public clearChatHistory() {
     const answerDiv = document.querySelector("#sidebar-answer") as HTMLDivElement;
     answerDiv.innerHTML = "";
     this.updateWelcomeMessage();
-    new ztoolkit.ProgressWindow(config.addonName)
-        .createLine({ text: "聊天历史记录已清空", type: "success" })
+    new ztoolkit.ProgressWindow(config.addonName, { closeTime: 1000 }) // 添加closeTime參數
+        .createLine({ text: "聊天歷史記錄已清空", type: "success" })
         .show();
 }
 
@@ -3730,6 +3828,50 @@ private updateWelcomeMessage() {
         // 有消息时移除欢迎语
         welcomeMsg?.remove();
     }
+}
+
+// 添加stopGeneration方法到Views类
+public stopGeneration() {
+    if (!this.isInference) return;
+    
+    // 停止所有输出
+    this.stopAlloutput();
+    
+    // 重置UI状态
+    this.isInference = false;
+    this.dotsContainer?.classList.remove("loading");
+    
+    // 添加检查避免空引用错误
+    if (this.inputContainer) {
+        // 切换按钮显示
+        const sendMsgNode = this.inputContainer.querySelector(".send-msgs-icon") as HTMLElement;
+        const stopMsgNode = this.inputContainer.querySelector(".stop-msgs-icon") as HTMLElement;
+        
+        if (sendMsgNode && stopMsgNode) {
+            sendMsgNode.style.display = "flex";
+            stopMsgNode.style.display = "none";
+        }
+    } else {
+        // 侧边栏的停止按钮处理
+        const sendButton = document.querySelector("#chat-input-buttoner") as HTMLElement;
+        const stopButton = document.querySelector("#chat-input-stopper") as HTMLElement;
+        if (sendButton && stopButton) {
+            sendButton.style.display = "flex";
+            stopButton.style.display = "none";
+        }
+    }
+    
+    // 在当前输出末尾添加提示
+    const lastOutput = this.messages[this.messages.length - 1];
+    if (lastOutput && lastOutput.role === "assistant") {
+        lastOutput.content += "\n\n[输出已中断]";
+        this.setText(lastOutput.content, true, true, false);
+    }
+    
+    // 显示提示消息
+    new ztoolkit.ProgressWindow("停止生成", { closeTime: 1000 })
+        .createLine({ text: "已停止模型輸出", type: "default" })
+        .show();
 }
 }
 
