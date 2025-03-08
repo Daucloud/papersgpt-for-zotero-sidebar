@@ -209,6 +209,7 @@ class Embeddings {
 
 export async function getGPTResponse(requestText: string) {
   const usingPublisher = Zotero.Prefs.get(`${config.addonRef}.usingPublisher`)
+  Zotero.log(`usingPublisher: ${usingPublisher}`)
  
   if (usingPublisher == "Local LLM") {
       return await getResponseByLocalLLM(requestText) 

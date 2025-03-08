@@ -21,7 +21,7 @@ const markdown = require("markdown-it")({
 const mathjax3 = require('markdown-it-mathjax3');
 markdown.use(mathjax3);
 
-export function sleep(time) {
+export function sleep(time: number) {
     return new Promise((resolve) => window.setTimeout(resolve, time));
 }
 
@@ -564,7 +564,7 @@ export default class Views {
         const curPublisherElement = this.publisher2models.get(curPublisher)
         if (curPublisherElement != null) {
           curPublisherElement.apiUrl = (<HTMLInputElement>apiUrlInputContainer).value
-          Zotero.Prefs.set(`${config.addonRef}.customModelApiUrl`, (<HTMLInputElement>apiUrlInputContainer).value)
+          Zotero.Prefs.set(`${config.addonRef}.usingModel`, (<HTMLInputElement>apiUrlInputContainer).value)
           Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, (<HTMLInputElement>apiUrlInputContainer).value)
           Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, (<HTMLInputElement>apiUrlInputContainer).value)
         }
@@ -618,6 +618,7 @@ export default class Views {
   //
   private buildContainer() {
     const container = ztoolkit.UI.createElement(document, "div", {
+      tag: "div", // 添加tag属性
       id: this.id,
       styles: {
         display: "none",
@@ -634,7 +635,7 @@ export default class Views {
                     0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
                     0px 30px 90px rgba(0, 0, 0, 0.2)`,
         fontFamily: fontFamily,
-	zIndex:1
+	zIndex: "3"
       }
     })
     this.addDragEvent(container)
@@ -731,7 +732,7 @@ export default class Views {
 		0px 30px 90px rgba(0, 0, 0, 0.2)`,
 		fontFamily: fontFamily,
 		opacity: 0.6,
-		zIndex:2, 
+		zIndex: "2", 
               },
             })
 
@@ -751,37 +752,37 @@ export default class Views {
 		0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
 		0px 30px 90px rgba(0, 0, 0, 0.2)`,
 		fontFamily: fontFamily,
-		zIndex:3, 
+		zIndex: "3", 
 	      },
             })
 
             const subscriberCloseContainer = ztoolkit.UI.appendElement({
-		tag: "div",
-		id: "subscriberClose",
-		styles: {
-		  display: "flex",
-		  flexDirection: "column",
-		  justifyContent: "flex-start",
-		  //justifyContent: "center",
-		  alignItems: "start",
-		  position: "fixed",
-		  //width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
-		  fontSize: "15px",
-		  borderRadius: "10px",
-		  backgroundColor: "#fff",
-		  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
-		  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
-		  0px 30px 90px rgba(0, 0, 0, 0.2)`,
-		  fontFamily: fontFamily,
-		  color: "#1e90ff",
-		  cursor: "pointer",
-		  zIndex:3, 
-		  margin: "10px" 
-		},
-		properties: {
-		  value: "",
-		  innerHTML: "X" 
-		}
+			tag: "div",
+			id: "subscriberClose",
+			styles: {
+			  display: "flex",
+			  flexDirection: "column",
+			  justifyContent: "flex-start",
+			  //justifyContent: "center",
+			  alignItems: "start",
+			  position: "fixed",
+			  //width: Zotero.Prefs.get(`${config.addonRef}.width`) as string,
+			  fontSize: "15px",
+			  borderRadius: "10px",
+			  backgroundColor: "#fff",
+			  boxShadow: `0px 1.8px 7.3px rgba(0, 0, 0, 0.071),
+			  0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
+			  0px 30px 90px rgba(0, 0, 0, 0.2)`,
+			  fontFamily: fontFamily,
+			  color: "#1e90ff",
+			  cursor: "pointer",
+			  zIndex: "3", 
+			  margin: "10px" 
+			},
+			properties: {
+			  value: "",
+			  innerHTML: "X" 
+			}
 	    }, subscriberShowContainer) as HTMLDivElement
 
             subscriberCloseContainer.addEventListener("click", async event => {
@@ -809,7 +810,7 @@ export default class Views {
 		  fontFamily: fontFamily,
 		  //color: "#1e90ff",
 		  //cursor: "pointer",
-		  zIndex:3, 
+		  zIndex: "3", 
 		  //margin: "10px" 
 		},
 		
@@ -860,7 +861,7 @@ export default class Views {
 		      fontFamily: fontFamily,
 		      //cursor: "pointer",
 		      //spacing: "20px", 
-		      zIndex:3, 
+		      zIndex: "3", 
 
 	          },
             })
@@ -884,7 +885,7 @@ export default class Views {
 			0px 6.3px 24.7px rgba(0, 0, 0, 0.112),
 			0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			fontFamily: fontFamily,
-			zIndex:3, 
+			zIndex: "3", 
 
 		},
 		properties: {
@@ -913,7 +914,7 @@ export default class Views {
 			//0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			fontFamily: fontFamily,
 			//cursor: "pointer",
-			zIndex:3, 
+			zIndex: "3", 
 
 		},
 		properties: {
@@ -942,7 +943,7 @@ export default class Views {
 			//0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			fontFamily: fontFamily,
 			//cursor: "pointer",
-			zIndex:3, 
+			zIndex: "3", 
 
 		},
 		properties: {
@@ -971,7 +972,7 @@ export default class Views {
 		  fontFamily: fontFamily,
 		  //color: "#1e90ff",
 		  //cursor: "pointer",
-		  zIndex:3, 
+		  zIndex: "3", 
 		  //margin: "20px" 
 		},
 		
@@ -998,7 +999,7 @@ export default class Views {
 		  fontFamily: fontFamily,
 		  color: "#1e90ff",
 		  cursor: "pointer",
-		  zIndex:3, 
+		  zIndex: "3", 
 		  margin: "20px" 
 		},
 		properties: {
@@ -1032,7 +1033,7 @@ export default class Views {
                    border: "1px solid #fff",
 		   cursor: "pointer",
 		   whiteSpace: "nowrap",
-		   zIndex: 3
+		   zIndex: "3"
 	       }, 
 	       properties: {
 	           innerHTML: "Subscribe" 
@@ -1127,7 +1128,7 @@ export default class Views {
 				//color: "#1e90ff",
 				//cursor: "pointer",
 				//spacing: "20px", 
-				zIndex:3, 
+				zIndex: "3", 
 
 			},
 			properties: {
@@ -1154,7 +1155,7 @@ export default class Views {
 			  0px 30px 90px rgba(0, 0, 0, 0.2)`,
 			  fontFamily: fontFamily,
 			  cursor: "pointer",
-			  zIndex:3, 
+			  zIndex: "3", 
 		        },
 		        properties: {
 		          value: "",
@@ -1892,7 +1893,7 @@ export default class Views {
 				  0px 30px 90px rgba(0, 0, 0, 0.2)`,
 				  fontFamily: fontFamily,
 				  opacity: 0.6,
-				  zIndex:2, 
+				  zIndex: "2", 
                               },
                       })
 
@@ -1916,7 +1917,7 @@ export default class Views {
 				  fontFamily: fontFamily,
 				  //cursor: "pointer",
 				  //spacing: "20px", 
-				  zIndex:3, 
+				  zIndex: "3", 
                                   
 			      },
                       })
@@ -1944,7 +1945,7 @@ export default class Views {
 				  color: "red",
 				  cursor: "pointer",
 				  //spacing: "20px", 
-				  zIndex:3, 
+				  zIndex: "3", 
                                   
 			      },
                               properties: {
@@ -1974,7 +1975,7 @@ export default class Views {
 				  fontFamily: fontFamily,
 				  color: "#1e90ff",
 				  cursor: "pointer",
-				  zIndex:3, 
+				  zIndex: "3", 
 			          margin: "20px" 
 			      },
 			  properties: {
@@ -2197,7 +2198,7 @@ export default class Views {
 								0px 30px 90px rgba(0, 0, 0, 0.2)`,
 								fontFamily: fontFamily,
 								opacity: 0.6,
-								zIndex:2, 
+								zIndex: "2", 
 							},
 						})
 
@@ -2221,7 +2222,7 @@ export default class Views {
 								fontFamily: fontFamily,
 								//cursor: "pointer",
 								//spacing: "20px", 
-								zIndex:3, 
+								zIndex: "3", 
 
 							},
 						})
@@ -2249,7 +2250,7 @@ export default class Views {
 								color: "red",
 								cursor: "pointer",
 								//spacing: "20px", 
-								zIndex:3, 
+								zIndex: "3", 
 
 							},
 							properties: {
@@ -2279,7 +2280,7 @@ export default class Views {
 								fontFamily: fontFamily,
 								color: "#1e90ff",
 								cursor: "pointer",
-								zIndex:3, 
+								zIndex: "3", 
 								margin: "20px" 
 							},
 							properties: {
@@ -2944,10 +2945,13 @@ export default class Views {
 
 
   public registerWindowAppearance() {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
-      this.isDarkMode = event.matches 
-      this.toggleDarkMode(event.matches);
-    }); 
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mediaQuery) {
+      mediaQuery.addEventListener('change', (event) => {
+        this.isDarkMode = event.matches 
+        this.toggleDarkMode(event.matches);
+      });
+    }
   } 
 
 
@@ -3262,49 +3266,79 @@ export default class Views {
   //! 3.2.1 Action for the model selector button
   const modelSelector = newNode.querySelector("#chat-input-model-selector");
   modelSelector?.addEventListener("mouseup", async (event) => {
+    const that = this; // 添加这一行，确保正确捕获this
     const rect = modelSelector.getBoundingClientRect();
     
     // 获取所有自定义模型配置
-    const customModels = JSON.parse(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]');
+    const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
     const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
+    Zotero.log(`当前可用模型: ${JSON.stringify(customModels)}`);
 
-    // 创建菜单项，修改 isSelected 的判断逻辑
-    const items = customModels.map((config: any) => ({
-      name: config.apimodel,
-      isSelected: currentModel === config.apimodel, // 修改这里，确保正确比较当前模型
+    // 创建菜单项
+    const items = customModels.map((e: any) => ({
+      name: e.apimodel,
+      isSelected: currentModel === e.apimodel,
       listener: async () => {
-        // 切换到选中的模型
-        Zotero.Prefs.set(`${config.addonRef}.usingModel`, config.apimodel);
-        Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, config.apiurl);
-        Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, config.apikey);
+        try {
+          // 切换到选中的模型
+          Zotero.Prefs.set(`${config.addonRef}.usingModel`, e.apimodel);
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, e.apiurl);
+          Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, e.apikey);
 
-        // 更新显示
-        const modelNameSpan = modelSelector.querySelector(".model-name");
-        if (modelNameSpan) {
-          modelNameSpan.textContent = config.apimodel;
+          // 修改这行来正确显示config对象的内容
+          Zotero.log(`config内容: ${JSON.stringify(config)}`);
+          // 也可以查看具体的属性
+          Zotero.log(`config.addonRef: ${config.addonRef}, config.apimodel: ${e.apimodel}`);
+
+      // 3. 添加延迟确保更新完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 4. 验证更新
+      const newModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`);
+      Zotero.log(`${config.addonRef}.usingModel: ${newModel}`)
+      Zotero.log(`模型已更新为: ${newModel}`);
+          
+
+          // 更新显示
+          const modelNameSpan = modelSelector.querySelector(".model-name");
+          if (modelNameSpan) {
+            modelNameSpan.textContent = e.apimodel;
+          }
+          //
+          // 确保publisher2models中有此模型
+          if (!that.publisher2models.has(e.apimodel)) {
+            const modelConfig: ModelConfig = {
+              models: [e.apimodel],
+              hasApiKey: true,
+              apiKey: e.apikey,
+              areModelsReady: new Map([[e.apimodel, true]]),
+              defaultModelIdx: 0,
+              apiUrl: e.apiurl
+            };
+            that.publisher2models.set(e.apimodel, modelConfig);
+          } else {
+            // 更新现有模型配置
+            const modelConfig = that.publisher2models.get(e.apimodel);
+            if (modelConfig) {
+              modelConfig.apiKey = e.apikey;
+              modelConfig.apiUrl = e.apiurl;
+              modelConfig.defaultModelIdx = 0;
+            }
+          }
+          
+          // 重置模型缓存 - 这可能需要根据实际代码调整
+          Meet.Global.resetModelConfig && Meet.Global.resetModelConfig();
+          
+          // 触发模型更新事件
+          that.createOrUpdateModelsContainer();
+          
+          Zotero.log("模型切换完成，配置已更新");
+        } catch (error) {
+          Zotero.log(`模型切换出错: ${error}`);
         }
-
-        // 添加调试日志
-        Zotero.log(`Switching to model: ${config.apimodel}`);
-        Zotero.log(`API URL: ${config.apiurl}`);
-        Zotero.log("Current settings:");  // 分开打印
-        Zotero.log("Model: " + Zotero.Prefs.get(`${config.addonRef}.usingModel`));
-        Zotero.log("API URL: " + Zotero.Prefs.get(`${config.addonRef}.usingAPIURL`));
-        Zotero.log("API Key: " + Zotero.Prefs.get(`${config.addonRef}.usingAPIKEY`));
-
-        // 更新 publisher2models 中的当前模型
-        const modelConfig = that.publisher2models.get(config.apimodel);
-        if (modelConfig) {
-          modelConfig.defaultModelIdx = 0;
-        }
-
-        // 触发模型更新事件
-        that.createOrUpdateModelsContainer();
       }
     }));
 
-    // 添加调试日志
-    Zotero.log(`Current model: ${currentModel}`);
     // 显示下拉菜单
     this.showModelMenu(items, rect);
   });
@@ -3407,14 +3441,33 @@ export default class Views {
     this.publishers = [];
 
     // 加载自定义模型配置
-    const customModels = JSON.parse(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]');
+    const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
     
-    customModels.push({
-      apimodel: "deepseek-chat",  // API 调用时使用的模型标识符
-      displayName: "Deepseek Chat", // 显示在菜单中的名称
-      apiurl: "https://api.deepseek.com/v1/chat/completions",
-      apikey: "sk-xxxx"
-    });
+    // 检查是否已有模型，避免重复添加
+    const existingModels = customModels.map((model: any) => model.apimodel);
+    
+    // 添加 Deepseek Chat 模型
+    if (!existingModels.includes("deepseek-chat")) {
+      customModels.push({
+        apimodel: "deepseek-chat",  
+        displayName: "Deepseek Chat", 
+        apiurl: "https://api.deepseek.com/v1/chat/completions",
+        apikey: "sk-c9440fac03c343fe9a30e45b36360180"
+      });
+    }
+
+    // 添加 Deepseek Reasoner 模型
+    if (!existingModels.includes("deepseek-reasoner")) {
+      customModels.push({
+        apimodel: "deepseek-reasoner",  
+        displayName: "Deepseek Reasoner", 
+        apiurl: "https://api.deepseek.com/v1/chat/completions",
+        apikey: "sk-c9440fac03c343fe9a30e45b36360180"
+      });
+    }
+    
+    // 关键修复：保存更新后的模型列表回首选项
+    Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
     
     // 遍历所有模型配置并添加到系统中
     customModels.forEach((config: any) => {
@@ -3430,11 +3483,23 @@ export default class Views {
       this.publishers.push(config.apimodel);
     });
 
-    // 设置当前使用的模型（使用第一个配置）
-    const firstConfig = customModels[0];
-    Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstConfig.apimodel);
-    Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstConfig.apiurl);
-    Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstConfig.apikey);
+    // 只有在有模型时才设置当前使用的模型
+    if (customModels.length > 0) {
+      const firstConfig = customModels[0];
+      Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstConfig.apimodel);
+      Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstConfig.apiurl);
+      Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstConfig.apikey);
+      
+      // 更新界面上的模型名称显示
+      const modelNameSpan = document.querySelector(".model-name");
+      if (modelNameSpan) {
+        modelNameSpan.textContent = firstConfig.apimodel;
+      }
+    }
+    
+    // 添加更多调试日志
+    Zotero.log(`已添加 ${customModels.length} 个模型配置`);
+    Zotero.log(`当前使用的模型: ${Zotero.Prefs.get(`${config.addonRef}.usingModel`)}`);
   }
 
 
@@ -3563,51 +3628,59 @@ export default class Views {
   private showModelMenu(items: any[], rect: DOMRect) {
     const doc = Zotero.getMainWindow().document;
     
+    // 移除可能存在的旧菜单
+    const existingMenu = doc.querySelector(".model-menu-wrapper");
+    if (existingMenu) {
+      existingMenu.remove();
+    }
+    
+    // 确保菜单有项目可显示
+    if (!items || items.length === 0) {
+      Zotero.log("No model items to display in menu");
+      return;
+    }
+    
     // 计算菜单应该显示的位置
     const menuHeight = items.length * 40; // 每个项目40px高度
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     
     // 创建菜单容器
-    const menuWrapper = ztoolkit.UI.createElement(doc, "div", {
-      classList: ["model-menu-wrapper"],
-      styles: {
-        position: "fixed",
-        left: `${rect.left}px`,
-        // 如果下方空间不够，就向上展开
-        top: spaceBelow >= menuHeight ? 
-          `${rect.bottom + 4}px` : 
-          `${rect.top - menuHeight - 4}px`,
-        width: `${rect.width}px`,
-        backgroundColor: "#ffffff",
-        border: "1px solid #e0e0e0",
-        borderRadius: "4px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        zIndex: "9999"
-      }
+    const menuWrapper = doc.createElement("div");
+    menuWrapper.className = "model-menu-wrapper";
+    Object.assign(menuWrapper.style, {
+      position: "fixed",
+      left: `${rect.left}px`,
+      top: spaceBelow >= menuHeight ? 
+        `${rect.bottom + 4}px` : 
+        `${rect.top - menuHeight - 4}px`,
+      width: `${rect.width}px`,
+      backgroundColor: "#ffffff",
+      border: "1px solid #e0e0e0",
+      borderRadius: "4px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+      zIndex: "9999"
     });
 
     // 添加菜单项
     items.forEach(item => {
-      const itemNode = ztoolkit.UI.createElement(doc, "div", {
-        styles: {
-          padding: "8px 12px",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
-          color: item.isSelected ? "#1d93ab" : "#444",
-          transition: "background-color 0.2s",
-          fontSize: "13px",
-          borderBottom: "1px solid #f0f0f0" // 添加分隔线
-        },
-        properties: {
-          innerHTML: `
-            <span style="flex-grow: 1;">${item.name}</span>
-            ${item.isSelected ? '<span style="margin-left: 8px;">✓</span>' : ''}
-          `
-        }
+      const itemNode = doc.createElement("div");
+      Object.assign(itemNode.style, {
+        padding: "8px 12px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        backgroundColor: item.isSelected ? "#f0f0f0" : "#ffffff",
+        color: item.isSelected ? "#1d93ab" : "#444",
+        transition: "background-color 0.2s",
+        fontSize: "13px",
+        borderBottom: "1px solid #f0f0f0"
       });
+      
+      itemNode.innerHTML = `
+        <span style="flex-grow: 1;">${item.name}</span>
+        ${item.isSelected ? '<span style="margin-left: 8px;">✓</span>' : ''}
+      `;
 
       itemNode.addEventListener("mouseenter", () => {
         itemNode.style.backgroundColor = "#f5f5f5";
@@ -3618,14 +3691,22 @@ export default class Views {
       });
 
       itemNode.addEventListener("click", async () => {
-        await item.listener();
+        try {
+          await item.listener();
+        } catch (error) {
+          Zotero.log(`Error in model selection: ${error}`);
+        }
         menuWrapper.remove();
       });
 
       menuWrapper.appendChild(itemNode);
     });
 
+    // 修复关键问题：使用documentElement而不是body
     doc.documentElement.appendChild(menuWrapper);
+    
+    // 添加调试日志
+    Zotero.log(`Menu created with ${items.length} items at position: ${rect.left}, ${rect.top}`);
 
     // 点击外部关闭菜单
     const closeMenu = (e: MouseEvent) => {
@@ -3635,9 +3716,10 @@ export default class Views {
       }
     };
 
+    // 使用setTimeout确保事件监听器在当前事件流完成后添加
     setTimeout(() => {
       doc.addEventListener("click", closeMenu);
-    }, 0);
+    }, 100); // 给予一点延迟
   }
 }
 
