@@ -618,7 +618,7 @@ export default class Views {
   //
   private buildContainer() {
     const container = ztoolkit.UI.createElement(document, "div", {
-      tag: "div", // 添加tag属性
+      tag: "div", // Add tag attribute
       id: this.id,
       styles: {
         display: "none",
@@ -2044,7 +2044,7 @@ export default class Views {
 
 		      for (var i = 0; i < this.supportedLanguages.length; i++) {
 			      if (this.supportedLanguages[i] == curLanguage) {
-				      languageSelectIdx = i + 1 
+				      languageSelectContainer.selectedIndex = i + 1 
 			      }	
 			      var optionId = "languageOption" + (i + 1) 
 			      const optionContainer = ztoolkit.UI.appendElement({
@@ -2348,7 +2348,7 @@ export default class Views {
 
 						for (var i = 0; i < this.supportedLanguages.length; i++) {
 							if (this.supportedLanguages[i] == curLanguage) {
-								languageSelectIdx = i + 1 
+								languageSelectContainer.selectedIndex = i + 1 
 							}	
 							var optionId = "languageOption" + (i + 1) 
 							const optionContainer = ztoolkit.UI.appendElement({
@@ -2360,7 +2360,6 @@ export default class Views {
 								}
 							}, languageSelectContainer) as HTMLDivElement
 						}
-						languageSelectContainer.selectedIndex = languageSelectIdx 
 
 						languageSelectContainer.addEventListener("change", async event => {
 							event.stopPropagation();
@@ -3091,8 +3090,15 @@ export default class Views {
   // 在HTML加载完成后,初始化model selector的当前值
   const modelNameSpan = newNode.querySelector(".model-name");
   if (modelNameSpan) {
-    const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
-    modelNameSpan.textContent = currentModel || "gpt-4o";
+    // 获取当前模型配置
+    const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+    const currentModelId = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
+    
+    // 查找当前模型的配置
+    const currentModel = customModels.find((model: any) => model.apimodel === currentModelId);
+    
+    // 使用 displayName 或 fallback 到 apimodel
+    modelNameSpan.textContent = currentModel?.displayName || currentModel?.apimodel || "gpt-4o";
   }
 
   // Add resize functionality
@@ -3266,46 +3272,36 @@ export default class Views {
   //! 3.2.1 Action for the model selector button
   const modelSelector = newNode.querySelector("#chat-input-model-selector");
   modelSelector?.addEventListener("mouseup", async (event) => {
-    const that = this; // 添加这一行，确保正确捕获this
+    const that = this;
     const rect = modelSelector.getBoundingClientRect();
     
-    // 获取所有自定义模型配置
     const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
     const currentModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`) as string;
-    Zotero.log(`当前可用模型: ${JSON.stringify(customModels)}`);
+    Zotero.log(`Available models: ${JSON.stringify(customModels)}`);
 
-    // 创建菜单项
+    // 修改菜单项映射，使用 displayName 作为显示名称
     const items = customModels.map((e: any) => ({
-      name: e.apimodel,
+      name: e.displayName || e.apimodel, // 优先使用 displayName 作为显示名称
+      apimodel: e.apimodel, // 保留实际的模型名称用于API调用
       isSelected: currentModel === e.apimodel,
       listener: async () => {
         try {
-          // 切换到选中的模型
+          // 使用 apimodel 而不是 displayName 进行设置
           Zotero.Prefs.set(`${config.addonRef}.usingModel`, e.apimodel);
           Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, e.apiurl);
           Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, e.apikey);
 
-          // 修改这行来正确显示config对象的内容
-          Zotero.log(`config内容: ${JSON.stringify(config)}`);
-          // 也可以查看具体的属性
-          Zotero.log(`config.addonRef: ${config.addonRef}, config.apimodel: ${e.apimodel}`);
-
-      // 3. 添加延迟确保更新完成
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // 4. 验证更新
-      const newModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`);
-      Zotero.log(`${config.addonRef}.usingModel: ${newModel}`)
-      Zotero.log(`模型已更新为: ${newModel}`);
+          await new Promise(resolve => setTimeout(resolve, 100));
           
-
-          // 更新显示
+          const newModel = Zotero.Prefs.get(`${config.addonRef}.usingModel`);
+          Zotero.log(`${config.addonRef}.usingModel: ${newModel}`);
+          
+          // 更新显示名称
           const modelNameSpan = modelSelector.querySelector(".model-name");
           if (modelNameSpan) {
-            modelNameSpan.textContent = e.apimodel;
+            modelNameSpan.textContent = e.displayName || e.apimodel;
           }
-          //
-          // 确保publisher2models中有此模型
+
           if (!that.publisher2models.has(e.apimodel)) {
             const modelConfig: ModelConfig = {
               models: [e.apimodel],
@@ -3313,28 +3309,26 @@ export default class Views {
               apiKey: e.apikey,
               areModelsReady: new Map([[e.apimodel, true]]),
               defaultModelIdx: 0,
-              apiUrl: e.apiurl
+              apiUrl: e.apiurl,
+              displayName: e.displayName // 添加显示名称到配置中
             };
             that.publisher2models.set(e.apimodel, modelConfig);
           } else {
-            // 更新现有模型配置
             const modelConfig = that.publisher2models.get(e.apimodel);
             if (modelConfig) {
               modelConfig.apiKey = e.apikey;
               modelConfig.apiUrl = e.apiurl;
               modelConfig.defaultModelIdx = 0;
+              modelConfig.displayName = e.displayName; // 更新显示名称
             }
           }
           
-          // 重置模型缓存 - 这可能需要根据实际代码调整
           Meet.Global.resetModelConfig && Meet.Global.resetModelConfig();
-          
-          // 触发模型更新事件
           that.createOrUpdateModelsContainer();
           
-          Zotero.log("模型切换完成，配置已更新");
+          Zotero.log("Model switch completed, configuration updated");
         } catch (error) {
-          Zotero.log(`模型切换出错: ${error}`);
+          Zotero.log(`Error switching model: ${error}`);
         }
       }
     }));
@@ -3446,27 +3440,7 @@ export default class Views {
     // 检查是否已有模型，避免重复添加
     const existingModels = customModels.map((model: any) => model.apimodel);
     
-    // 添加 Deepseek Chat 模型
-    if (!existingModels.includes("deepseek-chat")) {
-      customModels.push({
-        apimodel: "deepseek-chat",  
-        displayName: "Deepseek Chat", 
-        apiurl: "https://api.deepseek.com/v1/chat/completions",
-        apikey: "sk-c9440fac03c343fe9a30e45b36360180"
-      });
-    }
-
-    // 添加 Deepseek Reasoner 模型
-    if (!existingModels.includes("deepseek-reasoner")) {
-      customModels.push({
-        apimodel: "deepseek-reasoner",  
-        displayName: "Deepseek Reasoner", 
-        apiurl: "https://api.deepseek.com/v1/chat/completions",
-        apikey: "sk-c9440fac03c343fe9a30e45b36360180"
-      });
-    }
-    
-    // 关键修复：保存更新后的模型列表回首选项
+    // 保存更新后的模型列表
     Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
     
     // 遍历所有模型配置并添加到系统中
@@ -3477,7 +3451,8 @@ export default class Views {
         apiKey: config.apikey,
         areModelsReady: new Map([[config.apimodel, true]]),
         defaultModelIdx: 0,
-        apiUrl: config.apiurl
+        apiUrl: config.apiurl,
+        displayName: config.displayName // 添加显示名称
       };
       this.publisher2models.set(config.apimodel, modelConfig);
       this.publishers.push(config.apimodel);
@@ -3486,21 +3461,30 @@ export default class Views {
     // 只有在有模型时才设置当前使用的模型
     if (customModels.length > 0) {
       const firstConfig = customModels[0];
+      
+      // 设置模型配置
       Zotero.Prefs.set(`${config.addonRef}.usingModel`, firstConfig.apimodel);
       Zotero.Prefs.set(`${config.addonRef}.usingAPIURL`, firstConfig.apiurl);
       Zotero.Prefs.set(`${config.addonRef}.usingAPIKEY`, firstConfig.apikey);
       
-      // 更新界面上的模型名称显示
+      // 更新界面上的模型名称显示 - 使用 displayName
       const modelNameSpan = document.querySelector(".model-name");
       if (modelNameSpan) {
-        modelNameSpan.textContent = firstConfig.apimodel;
+        // 确保使用 displayName
+        modelNameSpan.textContent = firstConfig.displayName || 'nonono'
+      }
+
+      // 更新侧边栏的模型名称显示
+      const sidebarModelName = document.querySelector("#chat-input-model-selector .model-name");
+      if (sidebarModelName) {
+        sidebarModelName.textContent = firstConfig.displayName || firstConfig.apimodel;
       }
     }
     
-    // 添加更多调试日志
-    Zotero.log(`已添加 ${customModels.length} 个模型配置`);
-    Zotero.log(`当前使用的模型: ${Zotero.Prefs.get(`${config.addonRef}.usingModel`)}`);
-  }
+    // 添加调试日志
+    Zotero.log(`Added ${customModels.length} model configurations`);
+    Zotero.log(`Current model in use: ${customModels[0]?.displayName || customModels[0]?.apimodel}`);
+}
 
 
   /**
@@ -3640,31 +3624,32 @@ export default class Views {
       return;
     }
     
-    // 计算菜单应该显示的位置
-    const menuHeight = items.length * 40; // 每个项目40px高度
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    
     // 创建菜单容器
-    const menuWrapper = doc.createElement("div");
+    const menuWrapper = doc.createElement("div") as HTMLDivElement;
     menuWrapper.className = "model-menu-wrapper";
+
+    // 计算每个菜单项的高度和总高度
+    const itemHeight = 40; // 每个菜单项的高度
+    const menuHeight = (items.length + 2) * itemHeight; // +2 是为分隔线和添加新模型选项
+    
+    // 始终将菜单定位在按钮上方
     Object.assign(menuWrapper.style, {
       position: "fixed",
       left: `${rect.left}px`,
-      top: spaceBelow >= menuHeight ? 
-        `${rect.bottom + 4}px` : 
-        `${rect.top - menuHeight - 4}px`,
+      bottom: `${window.innerHeight - rect.top + 4}px`, // 定位到按钮上方
       width: `${rect.width}px`,
+      maxHeight: `${Math.min(menuHeight, window.innerHeight * 0.8)}px`, // 限制最大高度
       backgroundColor: "#ffffff",
       border: "1px solid #e0e0e0",
       borderRadius: "4px",
       boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-      zIndex: "9999"
+      zIndex: "9999",
+      overflowY: "auto" // 如果内容过多则显示滚动条
     });
 
     // 添加菜单项
     items.forEach(item => {
-      const itemNode = doc.createElement("div");
+      const itemNode = doc.createElement("div") as HTMLDivElement;
       Object.assign(itemNode.style, {
         padding: "8px 12px",
         cursor: "pointer",
@@ -3702,13 +3687,51 @@ export default class Views {
       menuWrapper.appendChild(itemNode);
     });
 
-    // 修复关键问题：使用documentElement而不是body
-    doc.documentElement.appendChild(menuWrapper);
-    
-    // 添加调试日志
-    Zotero.log(`Menu created with ${items.length} items at position: ${rect.left}, ${rect.top}`);
+    // 添加分隔线
+    const separator = doc.createElement("div") as HTMLDivElement;
+    Object.assign(separator.style, {
+      height: "1px",
+      margin: "8px 0",
+      backgroundColor: "#e0e0e0"
+    });
+    menuWrapper.appendChild(separator);
 
-    // 点击外部关闭菜单
+    // 添加"新建模型"选项
+    const newModelItem = doc.createElement("div") as HTMLDivElement;
+    Object.assign(newModelItem.style, {
+      padding: "8px 12px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      backgroundColor: "#ffffff",
+      color: "#1d93ab",
+      transition: "background-color 0.2s",
+      fontSize: "13px"
+    });
+    
+    newModelItem.innerHTML = `
+      <span style="flex-grow: 1;">➕ Add New Model</span>  
+    `;
+
+    newModelItem.addEventListener("mouseenter", () => {
+      newModelItem.style.backgroundColor = "#f5f5f5";
+    });
+
+    newModelItem.addEventListener("mouseleave", () => {
+      newModelItem.style.backgroundColor = "#ffffff";
+    });
+
+    newModelItem.addEventListener("click", () => {
+      this.showNewModelDialog();
+      menuWrapper.remove();
+    });
+
+    menuWrapper.appendChild(newModelItem);
+
+    // 添加到文档中
+    doc.documentElement.appendChild(menuWrapper);
+
+    // 处理点击外部关闭菜单
     const closeMenu = (e: MouseEvent) => {
       if (!menuWrapper.contains(e.target as Node)) {
         menuWrapper.remove();
@@ -3716,10 +3739,232 @@ export default class Views {
       }
     };
 
-    // 使用setTimeout确保事件监听器在当前事件流完成后添加
+    // 延迟添加事件监听器
     setTimeout(() => {
       doc.addEventListener("click", closeMenu);
-    }, 100); // 给予一点延迟
-  }
+    }, 100);
 }
 
+private showNewModelDialog() {
+    const doc = Zotero.getMainWindow().document;
+    
+    // 创建背景遮罩
+    const overlay = doc.createElement("div") as HTMLDivElement;
+    Object.assign(overlay.style, {
+      position: "fixed",
+      left: "0",
+      top: "0",
+      width: "100%",
+      height: "100%",
+      backgroundColor: "rgba(0,0,0,0.5)",
+      zIndex: "9999"
+    });
+
+    // 创建对话框容器
+    const dialogWrapper = doc.createElement("div") as HTMLDivElement;
+    Object.assign(dialogWrapper.style, {
+      position: "fixed",
+      left: "50%",
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      backgroundColor: "#ffffff",
+      padding: "20px",
+      borderRadius: "8px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+      zIndex: "10000",
+      width: "400px"
+    });
+
+    // 使用 createElement 而不是 innerHTML 来创建元素
+    const header = doc.createElement("div");
+    Object.assign(header.style, {
+      marginBottom: "20px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    });
+
+    const title = doc.createElement("h3");
+    title.textContent = "Add New Model Configuration";  // 改为英文
+    Object.assign(title.style, {
+      margin: "0",
+      color: "#333"
+    });
+
+    const closeBtn = doc.createElement("div");
+    closeBtn.id = "dialog-close";
+    closeBtn.textContent = "✕";
+    Object.assign(closeBtn.style, {
+      cursor: "pointer",
+      padding: "4px 8px"
+    });
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    dialogWrapper.appendChild(header);
+
+    // 创建表单字段
+    const fields = [
+      { id: "model-display-name", label: "Display Name", placeholder: "e.g. My GPT Model", type: "text" },
+      { id: "model-name", label: "Model Name", placeholder: "e.g. gpt-4", type: "text" },
+      { id: "model-url", label: "API URL", placeholder: "e.g. https://api.openai.com/v1/chat/completions", type: "text" },
+      { id: "model-key", label: "API Key", placeholder: "Enter API Key", type: "password" }
+    ];
+
+    fields.forEach(field => {
+      const container = doc.createElement("div");
+      Object.assign(container.style, {
+        marginBottom: "15px"
+      });
+
+      const label = doc.createElement("label");
+      label.textContent = field.label;
+      Object.assign(label.style, {
+        display: "block",
+        marginBottom: "5px",
+        color: "#666"
+      });
+
+      const input = doc.createElement("input");
+      input.id = field.id;
+      input.type = field.type;
+      input.placeholder = field.placeholder;
+      Object.assign(input.style, {
+        width: "100%",
+        padding: "8px",
+        border: "1px solid #ddd",
+        borderRadius: "4px",
+        boxSizing: "border-box"
+      });
+
+      container.appendChild(label);
+      container.appendChild(input);
+      dialogWrapper.appendChild(container);
+    });
+
+    // 创建错误消息容器
+    const errorMessage = doc.createElement("div");
+    errorMessage.id = "error-message";
+    Object.assign(errorMessage.style, {
+      color: "#ff4444",
+      marginBottom: "15px",
+      display: "none"
+    });
+    dialogWrapper.appendChild(errorMessage);
+
+    // 创建按钮容器
+    const buttonContainer = doc.createElement("div");
+    Object.assign(buttonContainer.style, {
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: "10px"
+    });
+
+    const cancelBtn = doc.createElement("button");
+    cancelBtn.id = "cancel-btn";
+    cancelBtn.textContent = "Cancel";  // 改为英文
+    Object.assign(cancelBtn.style, {
+      padding: "8px 16px",
+      border: "1px solid #ddd",
+      borderRadius: "4px",
+      background: "#fff",
+      cursor: "pointer"
+    });
+
+    const saveBtn = doc.createElement("button");
+    saveBtn.id = "save-btn";
+    saveBtn.textContent = "Save";  // 改为英文
+    Object.assign(saveBtn.style, {
+      padding: "8px 16px",
+      border: "none",
+      borderRadius: "4px",
+      background: "#1d93ab",
+      color: "#fff",
+      cursor: "pointer"
+    });
+
+    buttonContainer.appendChild(cancelBtn);
+    buttonContainer.appendChild(saveBtn);
+    dialogWrapper.appendChild(buttonContainer);
+
+    // 添加事件监听器
+    const closeDialog = () => {
+      overlay.remove();
+      dialogWrapper.remove();
+    };
+
+    const showError = (message: string) => {
+      errorMessage.textContent = message;
+      errorMessage.style.display = "block";
+      setTimeout(() => {
+        errorMessage.style.display = "none";
+      }, 3000);
+    };
+
+    const saveNewModel = () => {
+      const displayName = (doc.getElementById("model-display-name") as HTMLInputElement).value.trim();
+      const modelName = (doc.getElementById("model-name") as HTMLInputElement).value.trim();
+      const apiUrl = (doc.getElementById("model-url") as HTMLInputElement).value.trim();
+      const apiKey = (doc.getElementById("model-key") as HTMLInputElement).value.trim();
+
+      if (!displayName || !modelName || !apiUrl || !apiKey) {
+        showError("All fields are required");  // 改为英文
+        return;
+      }
+
+      try {
+        // 获取现有模型配置
+        const customModels = JSON.parse(String(Zotero.Prefs.get(`${config.addonRef}.customModels`) || '[]'));
+        
+        // 检查是否已存在相同的模型名称
+        if (customModels.some((model: any) => model.apimodel === modelName)) {
+          showError("Model name already exists");  // 改为英文
+          return;
+        }
+
+        // 添加新模型
+        customModels.push({
+          apimodel: modelName,
+          displayName: displayName,
+          apiurl: apiUrl,
+          apikey: apiKey
+        });
+
+        // 保存更新后的配置
+        Zotero.Prefs.set(`${config.addonRef}.customModels`, JSON.stringify(customModels));
+
+        // 更新模型列表
+        this.callback();
+        
+        // 关闭对话框
+        closeDialog();
+        
+        // 显示成功消息
+        new ztoolkit.ProgressWindow("Add Model")  // 改为英文
+          .createLine({ text: "New model configuration has been added", type: "success" })  // 改为英文
+          .show();
+
+      } catch (error) {
+        showError(`Error adding new model configuration: ${error}`);  // 改为英文
+      }
+    };
+
+    // 绑定事件监听器
+    closeBtn.addEventListener("click", closeDialog);
+    cancelBtn.addEventListener("click", closeDialog);
+    saveBtn.addEventListener("click", saveNewModel);
+    overlay.addEventListener("click", closeDialog);
+
+    // 阻止点击对话框时关闭
+    dialogWrapper.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    // 添加到文档中
+    doc.documentElement.appendChild(overlay);
+    doc.documentElement.appendChild(dialogWrapper);
+
+    // 聚焦第一个输入框
+    (doc.getElementById("model-display-name") as HTMLInputElement).focus();
+}
+}
